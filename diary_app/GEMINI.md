@@ -1,17 +1,23 @@
 # GEMINI.md - Tagebuch-App Projektkontext
 
-## 1. Projektübersicht
+## 1. WICHTIGER HINWEIS ZUR SPRACHE
+**Der Benutzer ist deutschsprachig.**
+*   Alle Interaktionen, Fragen und Antworten müssen auf **Deutsch** erfolgen.
+*   Die Dokumentation (DOKUMENTATION.md, SETUP.md) und Kommentare in Code-Bereichen, die für den Endnutzer relevant sind, sollten bevorzugt auf Deutsch verfasst werden oder zumindest verständlich sein.
+*   Code-Variable und Klassennamen bleiben in Englisch (Standard-Konvention), aber die Erklärung dazu erfolgt auf Deutsch.
+
+## 2. Projektübersicht
 Minimalistisches, rein textbasiertes Android-Tagebuch mit Fokus auf Datensicherheit und Einfachheit.
 Nutzt Flutter für UI und Business Logic, SQLite für lokale Datenhaltung.
 
-## 2. Tech Stack
+## 3. Tech Stack
 - **Framework:** Flutter (Stable)
 - **Sprache:** Dart (>=3.0.0)
 - **Datenbank:** `sqflite` (SQLite Wrapper für Flutter)
 - **State Management:** `setState` (Lokal in Widgets für einfache Logik)
 - **Export:** `share_plus` (Teilen-Dialog), `path_provider` (Dateizugriff), `intl` (Datumsformatierung)
 
-## 3. Dateistruktur (Wichtigste Dateien)
+## 4. Dateistruktur (Wichtigste Dateien)
 ```
 diary_app/
 ├── lib/
@@ -36,12 +42,12 @@ diary_app/
 └── SETUP.md                    # Installationsanleitung (DE)
 ```
 
-## 4. Wichtige Implementierungsdetails
+## 5. Wichtige Implementierungsdetails
 - **Datenbank:** `DatabaseHelper` implementiert Singleton-Pattern. `_createDB` erstellt Tabelle `entries` mit `_id`, `date`, `content`.
 - **Export:** `ExportService.exportEntries()` liest alle Daten, formatiert sie (`Datum: ...\nInhalt\n\n`), schreibt temporäre Datei und nutzt `Share.shareXFiles`.
 - **Sicherheit:** Release-Build hat keine Internet-Permission (`android.permission.INTERNET` nur im Debug-Manifest).
 
-## 5. Status
+## 6. Status
 - [x] Initialisierung (Flutter Project)
 - [x] Datenbank-Implementierung
 - [x] UI-Entwicklung (Liste, Hinzufügen)
