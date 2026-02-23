@@ -14,8 +14,11 @@ class ExportService {
 
     final buffer = StringBuffer();
     for (final entry in entries) {
-      final dateStr = DateFormat('yyyy-MM-dd').format(entry.date);
+      final dateStr = DateFormat('dd.MM.yyyy').format(entry.date);
       buffer.writeln('Datum: $dateStr');
+      if (entry.title != null && entry.title!.isNotEmpty) {
+        buffer.writeln('Titel: ${entry.title}');
+      }
       buffer.writeln(entry.content);
       buffer.writeln(); // Empty line between entries
     }

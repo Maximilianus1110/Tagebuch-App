@@ -1,13 +1,26 @@
 import 'package:diary_app/models/diary_entry.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 class DatabaseHelper {
-  static final DatabaseHelper instance = DatabaseHelper._init();
+  static DatabaseHelper _instance = DatabaseHelper._init();
+
+  static DatabaseHelper get instance => _instance;
+
+  // Allow setting instance for testing
+  @visibleForTesting
+  static set instance(DatabaseHelper helper) {
+    _instance = helper;
+  }
 
   static Database? _database;
 
   DatabaseHelper._init();
+
+  // Constructor for subclasses/mocks
+  @visibleForTesting
+  DatabaseHelper.test();
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -20,20 +33,36 @@ class DatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    // Increment version to trigger onUpgrade for existing users
+    return await openDatabase(
+      path,
+      version: 2,
+      onCreate: _createDB,
+      onUpgrade: _upgradeDB,
+    );
   }
 
   Future _createDB(Database db, int version) async {
     const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
     const textType = 'TEXT NOT NULL';
+    const textTypeNullable = 'TEXT'; // Titles can be null/empty
 
     await db.execute('''
 CREATE TABLE ${DiaryEntryFields.tableName} (
   ${DiaryEntryFields.id} $idType,
   ${DiaryEntryFields.date} $textType,
-  ${DiaryEntryFields.content} $textType
+  ${DiaryEntryFields.content} $textType,
+  ${DiaryEntryFields.title} $textTypeNullable
   )
 ''');
+  }
+
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute(
+        'ALTER TABLE ${DiaryEntryFields.tableName} ADD COLUMN ${DiaryEntryFields.title} TEXT',
+      );
+    }
   }
 
   Future<DiaryEntry> create(DiaryEntry entry) async {
