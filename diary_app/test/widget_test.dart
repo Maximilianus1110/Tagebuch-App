@@ -1,43 +1,126 @@
+import 'package:diary_app/db/database_helper.dart';
 import 'package:diary_app/main.dart';
+import 'package:diary_app/models/diary_entry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+class MockDatabaseHelper extends DatabaseHelper {
+  MockDatabaseHelper() : super.test();
+
+  List<DiaryEntry> entries = [];
+  int nextId = 1;
+
+  @override
+  Future<List<DiaryEntry>> readAllEntries() async {
+    // Return copy to simulate DB behavior
+    return List.from(entries)..sort((a, b) => b.date.compareTo(a.date));
+  }
+
+  @override
+  Future<DiaryEntry> create(DiaryEntry entry) async {
+    final newEntry = entry.copyWith(id: nextId++);
+    entries.add(newEntry);
+    return newEntry;
+  }
+
+  @override
+  Future<int> update(DiaryEntry entry) async {
+    final index = entries.indexWhere((e) => e.id == entry.id);
+    if (index != -1) {
+      entries[index] = entry;
+      return 1;
+    }
+    return 0;
+  }
+
+  @override
+  Future<int> delete(int id) async {
+    entries.removeWhere((e) => e.id == id);
+    return 1;
+  }
+}
 
 void main() {
-  setUpAll(() {
-    TestWidgetsFlutterBinding.ensureInitialized();
-    // Initialize FFI
-    sqfliteFfiInit();
-    // Change the default factory
-    databaseFactory = databaseFactoryFfi;
+  setUp(() {
+    DatabaseHelper.instance = MockDatabaseHelper();
   });
 
-  testWidgets('App allows navigation to Add Entry screen', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
+  testWidgets('Create, Verify List, Search, Edit, Delete', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle(); // Should resolve quickly with mock
 
-    // Allow some time for initial render, but don't wait for infinite animations (loading)
-    await tester.pump(const Duration(milliseconds: 100));
+    // 1. Verify Empty List
+    expect(find.text('Keine Einträge vorhanden.'), findsOneWidget);
 
-    // Verify Home Screen
-    expect(find.text('Mein Tagebuch'), findsOneWidget);
-
-    // Tap the '+' icon to go to Add Entry screen.
+    // 2. Create Entry
     await tester.tap(find.byIcon(Icons.add));
-
-    // Wait for navigation animation
     await tester.pumpAndSettle();
 
-    // Verify we are on the Add Entry screen.
-    expect(find.text('Neuer Eintrag'), findsOneWidget);
+    // Verify Title Field Exists
+    expect(find.text('Titel (optional)'), findsOneWidget);
 
-    // Tap Back button
-    await tester.pageBack();
+    // Enter Data
+    await tester.enterText(find.widgetWithText(TextFormField, 'Titel (optional)'), 'My Test Title');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Tagebucheintrag'), 'This is a long test content to check truncation and display.');
 
-    // Wait for navigation back. Use pump with duration instead of settle if loading spinner is active
-    await tester.pump(const Duration(milliseconds: 500));
+    // Save
+    await tester.tap(find.text('SPEICHERN'));
+    await tester.pumpAndSettle();
 
-    // Verify we are back on Home Screen.
-    expect(find.text('Mein Tagebuch'), findsOneWidget);
+    // 3. Verify List Item
+    expect(find.text('My Test Title'), findsOneWidget);
+
+    // Verify Truncation (visually hard, but check content text exists)
+    expect(find.text('This is a long test content to check truncation and display.'), findsOneWidget);
+
+    // 4. Search
+    // Search for non-existent
+    await tester.enterText(find.widgetWithText(TextField, 'Suchen...'), 'NotExist');
+    await tester.pumpAndSettle(); // Filter updates
+    expect(find.text('My Test Title'), findsNothing);
+
+    // Search for existent
+    await tester.enterText(find.widgetWithText(TextField, 'Suchen...'), 'Test');
+    await tester.pumpAndSettle();
+    expect(find.text('My Test Title'), findsOneWidget);
+
+    // Clear Search
+    await tester.enterText(find.widgetWithText(TextField, 'Suchen...'), '');
+    await tester.pumpAndSettle();
+    expect(find.text('My Test Title'), findsOneWidget);
+
+    // 5. Edit Entry
+    await tester.tap(find.text('My Test Title'));
+    await tester.pumpAndSettle();
+
+    // Verify Edit Screen
+    expect(find.text('Eintrag bearbeiten'), findsOneWidget);
+    expect(find.text('My Test Title'), findsOneWidget);
+
+    // Change Title
+    await tester.enterText(find.widgetWithText(TextFormField, 'Titel (optional)'), 'Updated Title');
+    await tester.tap(find.text('SPEICHERN'));
+    await tester.pumpAndSettle();
+
+    // Verify Update
+    expect(find.text('Updated Title'), findsOneWidget);
+    expect(find.text('My Test Title'), findsNothing);
+
+    // 6. Delete Entry
+    await tester.tap(find.text('Updated Title'));
+    await tester.pumpAndSettle();
+
+    // Click Delete Icon
+    await tester.tap(find.byIcon(Icons.delete));
+    await tester.pumpAndSettle();
+
+    // Confirm Dialog
+    expect(find.text('Eintrag löschen?'), findsOneWidget);
+    await tester.tap(find.text('Ja'));
+    await tester.pumpAndSettle();
+
+    // Verify Deletion
+    expect(find.text('Updated Title'), findsNothing);
+    expect(find.text('Keine Einträge vorhanden.'), findsOneWidget);
   });
 }
