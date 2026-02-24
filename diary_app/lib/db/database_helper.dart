@@ -33,26 +33,31 @@ class DatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    // Increment version to trigger onUpgrade for existing users
-    return await openDatabase(
+    final db = await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
+
+    // Perform cleanup of old trash entries
+    await _cleanupTrash(db);
+
+    return db;
   }
 
   Future _createDB(Database db, int version) async {
     const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
     const textType = 'TEXT NOT NULL';
-    const textTypeNullable = 'TEXT'; // Titles can be null/empty
+    const textTypeNullable = 'TEXT'; // Titles/DeletedAt can be null
 
     await db.execute('''
 CREATE TABLE ${DiaryEntryFields.tableName} (
   ${DiaryEntryFields.id} $idType,
   ${DiaryEntryFields.date} $textType,
   ${DiaryEntryFields.content} $textType,
-  ${DiaryEntryFields.title} $textTypeNullable
+  ${DiaryEntryFields.title} $textTypeNullable,
+  ${DiaryEntryFields.deletedAt} $textTypeNullable
   )
 ''');
   }
@@ -61,6 +66,11 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
     if (oldVersion < 2) {
       await db.execute(
         'ALTER TABLE ${DiaryEntryFields.tableName} ADD COLUMN ${DiaryEntryFields.title} TEXT',
+      );
+    }
+    if (oldVersion < 3) {
+      await db.execute(
+        'ALTER TABLE ${DiaryEntryFields.tableName} ADD COLUMN ${DiaryEntryFields.deletedAt} TEXT',
       );
     }
   }
@@ -94,7 +104,26 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
     final db = await instance.database;
 
     final orderBy = '${DiaryEntryFields.date} DESC';
-    final result = await db.query(DiaryEntryFields.tableName, orderBy: orderBy);
+    // Filter out deleted entries
+    final result = await db.query(
+      DiaryEntryFields.tableName,
+      orderBy: orderBy,
+      where: '${DiaryEntryFields.deletedAt} IS NULL',
+    );
+
+    return result.map((json) => DiaryEntry.fromJson(json)).toList();
+  }
+
+  Future<List<DiaryEntry>> readTrashEntries() async {
+    final db = await instance.database;
+
+    final orderBy = '${DiaryEntryFields.deletedAt} DESC';
+    // Only deleted entries
+    final result = await db.query(
+      DiaryEntryFields.tableName,
+      orderBy: orderBy,
+      where: '${DiaryEntryFields.deletedAt} IS NOT NULL',
+    );
 
     return result.map((json) => DiaryEntry.fromJson(json)).toList();
   }
@@ -110,13 +139,54 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
     );
   }
 
+  // Soft delete
   Future<int> delete(int id) async {
+    final db = await instance.database;
+
+    return db.update(
+      DiaryEntryFields.tableName,
+      {DiaryEntryFields.deletedAt: DateTime.now().toIso8601String()},
+      where: '${DiaryEntryFields.id} = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // Restore from trash
+  Future<int> restore(int id) async {
+    final db = await instance.database;
+
+    return db.update(
+      DiaryEntryFields.tableName,
+      {DiaryEntryFields.deletedAt: null},
+      where: '${DiaryEntryFields.id} = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // Hard delete
+  Future<int> hardDelete(int id) async {
     final db = await instance.database;
 
     return await db.delete(
       DiaryEntryFields.tableName,
       where: '${DiaryEntryFields.id} = ?',
       whereArgs: [id],
+    );
+  }
+
+  // Cleanup old trash
+  Future<int> cleanupTrash() async {
+    final db = await instance.database;
+    return _cleanupTrash(db);
+  }
+
+  // Private helper to allow calling from _initDB
+  Future<int> _cleanupTrash(Database db) async {
+    final cutoff = DateTime.now().subtract(const Duration(days: 30));
+    return await db.delete(
+      DiaryEntryFields.tableName,
+      where: '${DiaryEntryFields.deletedAt} IS NOT NULL AND ${DiaryEntryFields.deletedAt} < ?',
+      whereArgs: [cutoff.toIso8601String()],
     );
   }
 

@@ -4,6 +4,8 @@ import 'package:diary_app/db/database_helper.dart';
 import 'package:diary_app/models/diary_entry.dart';
 import 'package:diary_app/screens/add_entry_screen.dart';
 import 'package:diary_app/services/export_service.dart';
+import 'package:diary_app/screens/trash_screen.dart';
+import 'package:diary_app/screens/gym_screen.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
@@ -155,10 +157,62 @@ class _DiaryScreenState extends State<DiaryScreen> {
       appBar: AppBar(
         title: const Text('Mein Tagebuch'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            tooltip: 'Exportieren',
-            onPressed: () => ExportService.exportEntries(),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              switch (value) {
+                case 'export':
+                  ExportService.exportEntries();
+                  break;
+                case 'trash':
+                  Navigator.of(context)
+                      .push(
+                    MaterialPageRoute(
+                        builder: (context) => const TrashScreen()),
+                  )
+                      .then((_) => _refreshEntries());
+                  break;
+                case 'gym':
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (context) => const GymScreen()),
+                  );
+                  break;
+              }
+            },
+            itemBuilder: (BuildContext context) {
+              return [
+                const PopupMenuItem<String>(
+                  value: 'export',
+                  child: Row(
+                    children: [
+                      Icon(Icons.share, color: Colors.black54),
+                      SizedBox(width: 8),
+                      Text('Tagebuch exportieren'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'trash',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, color: Colors.black54),
+                      SizedBox(width: 8),
+                      Text('Papierkorb'),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem<String>(
+                  value: 'gym',
+                  child: Row(
+                    children: [
+                      Icon(Icons.fitness_center, color: Colors.black54),
+                      SizedBox(width: 8),
+                      Text('Modus wechseln'),
+                    ],
+                  ),
+                ),
+              ];
+            },
           ),
         ],
       ),

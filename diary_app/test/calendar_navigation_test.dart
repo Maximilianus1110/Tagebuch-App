@@ -14,7 +14,8 @@ class MockDatabaseHelper extends DatabaseHelper {
 
   @override
   Future<List<DiaryEntry>> readAllEntries() async {
-    return List.from(entries)..sort((a, b) => b.date.compareTo(a.date));
+    return entries.where((e) => e.deletedAt == null).toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
   }
 
   @override
@@ -28,7 +29,33 @@ class MockDatabaseHelper extends DatabaseHelper {
   Future<int> update(DiaryEntry entry) async => 1;
 
   @override
-  Future<int> delete(int id) async => 1;
+  Future<int> delete(int id) async {
+      // Soft delete simulation
+      final index = entries.indexWhere((e) => e.id == id);
+      if (index != -1) {
+          entries[index] = DiaryEntry(
+              id: entries[index].id,
+              date: entries[index].date,
+              content: entries[index].content,
+              title: entries[index].title,
+              deletedAt: DateTime.now(),
+          );
+          return 1;
+      }
+      return 0;
+  }
+
+  @override
+  Future<List<DiaryEntry>> readTrashEntries() async => [];
+
+  @override
+  Future<int> restore(int id) async => 1;
+
+  @override
+  Future<int> hardDelete(int id) async => 1;
+
+  @override
+  Future<int> cleanupTrash() async => 0;
 }
 
 void main() {
