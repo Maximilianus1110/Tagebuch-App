@@ -3,12 +3,14 @@ class GymTraining {
   final int planId;
   final DateTime date;
   final String? note;
+  final int? durationSeconds;
 
   GymTraining({
     this.id,
     required this.planId,
     required this.date,
     this.note,
+    this.durationSeconds,
   });
 
   GymTraining copyWith({
@@ -16,12 +18,14 @@ class GymTraining {
     int? planId,
     DateTime? date,
     String? note,
+    int? durationSeconds,
   }) {
     return GymTraining(
       id: id ?? this.id,
       planId: planId ?? this.planId,
       date: date ?? this.date,
       note: note ?? this.note,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
     );
   }
 
@@ -30,6 +34,7 @@ class GymTraining {
         GymTrainingFields.planId: planId,
         GymTrainingFields.date: date.toIso8601String(),
         if (note != null) GymTrainingFields.note: note,
+        if (durationSeconds != null) GymTrainingFields.durationSeconds: durationSeconds,
       };
 
   static GymTraining fromJson(Map<String, Object?> json) => GymTraining(
@@ -37,6 +42,7 @@ class GymTraining {
         planId: json[GymTrainingFields.planId] as int,
         date: DateTime.parse(json[GymTrainingFields.date] as String),
         note: json[GymTrainingFields.note] as String?,
+        durationSeconds: json[GymTrainingFields.durationSeconds] as int?,
       );
 }
 
@@ -118,6 +124,7 @@ class GymTrainingFields {
   static const String planId = 'plan_id';
   static const String date = 'date';
   static const String note = 'note';
+  static const String durationSeconds = 'duration_seconds';
 }
 
 class GymSetFields {

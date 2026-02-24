@@ -4,7 +4,9 @@ import 'package:diary_app/screens/gym/create_plan_screen.dart';
 import 'package:diary_app/screens/gym/manage_exercises_screen.dart';
 import 'package:diary_app/screens/gym/training_session_screen.dart';
 import 'package:diary_app/screens/gym/training_detail_screen.dart';
+import 'package:diary_app/screens/gym/statistics_screen.dart';
 import 'package:diary_app/services/gym_service.dart';
+import 'package:diary_app/services/export_service.dart';
 import 'package:diary_app/widgets/app_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -166,6 +168,24 @@ class _GymScreenState extends State<GymScreen> {
             title: const Text('Training nachtragen'),
             onTap: _showAddPastTrainingDialog,
           ),
+          ListTile(
+            leading: const Icon(Icons.download),
+            title: const Text('Gym Daten exportieren'),
+            onTap: () {
+              Navigator.pop(context);
+              ExportService.exportGymData();
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.bar_chart),
+            title: const Text('Statistiken'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const StatisticsScreen()),
+              );
+            },
+          ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.book),
@@ -197,21 +217,17 @@ class _GymScreenState extends State<GymScreen> {
                       const SizedBox(height: 16),
                       SizedBox(
                         height: 200, // Fixed height for horizontal list
-                        child: _plans.isEmpty
-                            ? Center(
-                                child: Text(
-                                  'Keine Pläne vorhanden.\nErstelle einen im Menü.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: Theme.of(context).disabledColor),
-                                ),
-                              )
-                            : ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: _plans.length,
-                                itemBuilder: (context, index) {
-                                  return _buildPlanCard(_plans[index]);
-                                },
-                              ),
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _plans.length + 1, // +1 for "Create New" card
+                          itemBuilder: (context, index) {
+                            if (index < _plans.length) {
+                              return _buildPlanCard(_plans[index]);
+                            } else {
+                              return _buildAddPlanCard();
+                            }
+                          },
+                        ),
                       ),
                       const SizedBox(height: 32),
                       Text(
@@ -254,58 +270,11 @@ class _GymScreenState extends State<GymScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      viewModel.plan.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  PopupMenuButton<String>(
-                    onSelected: (value) async {
-                      if (value == 'edit') {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => CreatePlanScreen(plan: viewModel.plan),
-                          ),
-                        ).then((_) => _refresh());
-                      } else if (value == 'delete') {
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Plan löschen?'),
-                            content: const Text('Möchtest du diesen Trainingsplan wirklich löschen?'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text('Abbrechen'),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                child: const Text('Löschen', style: TextStyle(color: Colors.red)),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (confirm == true) {
-                          await _gymService.deletePlan(viewModel.plan.id!);
-                          _refresh();
-                        }
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(value: 'edit', child: Text('Bearbeiten')),
-                      const PopupMenuItem(value: 'delete', child: Text('Löschen')),
-                    ],
-                    icon: const Icon(Icons.more_vert, size: 20),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
+              Text(
+                viewModel.plan.name,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 8),
               Expanded(
@@ -344,6 +313,39 @@ class _GymScreenState extends State<GymScreen> {
     );
   }
 
+  Widget _buildAddPlanCard() {
+    return Container(
+      width: 160,
+      margin: const EdgeInsets.only(right: 16),
+      child: Card(
+        color: Theme.of(context).cardColor.withOpacity(0.8),
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Theme.of(context).disabledColor, width: 1, style: BorderStyle.solid),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => const CreatePlanScreen()),
+            ).then((_) => _refresh());
+          },
+          child: const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.add_circle_outline, size: 40, color: Colors.grey),
+                SizedBox(height: 8),
+                Text('Neuer Plan', style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHistoryItem(TrainingHistoryItem item) {
     final dateFormat = DateFormat('dd.MM.yyyy'); // Or 'dd MMM, yyyy'
     final dateStr = dateFormat.format(item.training.date);
@@ -366,30 +368,6 @@ class _GymScreenState extends State<GymScreen> {
               ),
             ),
           );
-        },
-        onLongPress: () async {
-          final confirm = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Training löschen?'),
-              content: const Text('Möchtest du dieses Training wirklich löschen?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Abbrechen'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Löschen', style: TextStyle(color: Colors.red)),
-                ),
-              ],
-            ),
-          );
-
-          if (confirm == true) {
-            await _gymService.deleteTraining(item.training.id!);
-            _refresh();
-          }
         },
         child: Padding(
           padding: const EdgeInsets.all(16.0),
