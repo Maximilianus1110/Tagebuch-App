@@ -41,6 +41,10 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
 
+    // Navigate to Diary
+    await tester.tap(find.text('Tagebuch'));
+    await tester.pumpAndSettle();
+
     // Verify TableCalendar exists
     expect(find.byType(TableCalendar<DiaryEntry>), findsOneWidget);
 
