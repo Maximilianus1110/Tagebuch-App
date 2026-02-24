@@ -1,4 +1,7 @@
 import 'package:diary_app/models/diary_entry.dart';
+import 'package:diary_app/models/gym/gym_equipment.dart';
+import 'package:diary_app/models/gym/gym_plan.dart';
+import 'package:diary_app/models/gym/gym_training.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -35,7 +38,7 @@ class DatabaseHelper {
 
     final db = await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -60,6 +63,8 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
   ${DiaryEntryFields.deletedAt} $textTypeNullable
   )
 ''');
+
+    await _createGymTables(db);
   }
 
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -73,7 +78,77 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
         'ALTER TABLE ${DiaryEntryFields.tableName} ADD COLUMN ${DiaryEntryFields.deletedAt} TEXT',
       );
     }
+    if (oldVersion < 4) {
+      await _createGymTables(db);
+    }
   }
+
+  Future _createGymTables(Database db) async {
+    const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    const textType = 'TEXT NOT NULL';
+    const intType = 'INTEGER NOT NULL';
+    const realType = 'REAL';
+    const boolType = 'INTEGER NOT NULL DEFAULT 0';
+    const textNullable = 'TEXT';
+    const intNullable = 'INTEGER';
+
+    // Gym Equipment
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${GymEquipmentFields.tableName} (
+  ${GymEquipmentFields.id} $idType,
+  ${GymEquipmentFields.name} $textType
+)
+''');
+
+    // Gym Plans
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${GymPlanFields.tableName} (
+  ${GymPlanFields.id} $idType,
+  ${GymPlanFields.name} $textType
+)
+''');
+
+    // Gym Plan Exercises
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${GymPlanExerciseFields.tableName} (
+  ${GymPlanExerciseFields.id} $idType,
+  ${GymPlanExerciseFields.planId} $intType,
+  ${GymPlanExerciseFields.equipmentId} $intType,
+  ${GymPlanExerciseFields.setCount} $intType,
+  ${GymPlanExerciseFields.sortOrder} $intType,
+  FOREIGN KEY (${GymPlanExerciseFields.planId}) REFERENCES ${GymPlanFields.tableName} (${GymPlanFields.id}) ON DELETE CASCADE,
+  FOREIGN KEY (${GymPlanExerciseFields.equipmentId}) REFERENCES ${GymEquipmentFields.tableName} (${GymEquipmentFields.id})
+)
+''');
+
+    // Gym Trainings
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${GymTrainingFields.tableName} (
+  ${GymTrainingFields.id} $idType,
+  ${GymTrainingFields.planId} $intType,
+  ${GymTrainingFields.date} $textType,
+  ${GymTrainingFields.note} $textNullable,
+  FOREIGN KEY (${GymTrainingFields.planId}) REFERENCES ${GymPlanFields.tableName} (${GymPlanFields.id})
+)
+''');
+
+    // Gym Sets
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${GymSetFields.tableName} (
+  ${GymSetFields.id} $idType,
+  ${GymSetFields.trainingId} $intType,
+  ${GymSetFields.equipmentId} $intType,
+  ${GymSetFields.setNumber} $intType,
+  ${GymSetFields.reps} $intNullable,
+  ${GymSetFields.weight} $realType,
+  ${GymSetFields.isDone} $boolType,
+  FOREIGN KEY (${GymSetFields.trainingId}) REFERENCES ${GymTrainingFields.tableName} (${GymTrainingFields.id}) ON DELETE CASCADE,
+  FOREIGN KEY (${GymSetFields.equipmentId}) REFERENCES ${GymEquipmentFields.tableName} (${GymEquipmentFields.id})
+)
+''');
+  }
+
+  // --- Diary Entry CRUD ---
 
   Future<DiaryEntry> create(DiaryEntry entry) async {
     final db = await instance.database;
@@ -174,21 +249,123 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
     );
   }
 
-  // Cleanup old trash
-  Future<int> cleanupTrash() async {
+  // --- Gym CRUD Methods ---
+
+  // Equipment
+  Future<GymEquipment> createEquipment(GymEquipment equipment) async {
     final db = await instance.database;
-    return _cleanupTrash(db);
+    final id = await db.insert(GymEquipmentFields.tableName, equipment.toJson());
+    return equipment.copyWith(id: id);
   }
 
-  // Private helper to allow calling from _initDB
-  Future<int> _cleanupTrash(Database db) async {
-    final cutoff = DateTime.now().subtract(const Duration(days: 30));
-    return await db.delete(
-      DiaryEntryFields.tableName,
-      where: '${DiaryEntryFields.deletedAt} IS NOT NULL AND ${DiaryEntryFields.deletedAt} < ?',
-      whereArgs: [cutoff.toIso8601String()],
-    );
+  Future<List<GymEquipment>> getAllEquipment() async {
+    final db = await instance.database;
+    final result = await db.query(GymEquipmentFields.tableName, orderBy: '${GymEquipmentFields.name} ASC');
+    return result.map((json) => GymEquipment.fromJson(json)).toList();
   }
+
+  // Plans
+  Future<GymPlan> createPlan(GymPlan plan, List<GymPlanExercise> exercises) async {
+    final db = await instance.database;
+    // Transaction to ensure plan and exercises are created together
+    return await db.transaction((txn) async {
+      final planId = await txn.insert(GymPlanFields.tableName, plan.toJson());
+
+      for (var exercise in exercises) {
+        final exerciseWithPlanId = exercise.copyWith(planId: planId);
+        await txn.insert(GymPlanExerciseFields.tableName, exerciseWithPlanId.toJson());
+      }
+
+      return plan.copyWith(id: planId);
+    });
+  }
+
+  Future<List<GymPlan>> getAllPlans() async {
+    final db = await instance.database;
+    final result = await db.query(GymPlanFields.tableName, orderBy: '${GymPlanFields.name} ASC');
+    return result.map((json) => GymPlan.fromJson(json)).toList();
+  }
+
+  Future<List<GymPlanExercise>> getExercisesForPlan(int planId) async {
+    final db = await instance.database;
+    final result = await db.query(
+      GymPlanExerciseFields.tableName,
+      where: '${GymPlanExerciseFields.planId} = ?',
+      whereArgs: [planId],
+      orderBy: GymPlanExerciseFields.sortOrder,
+    );
+    return result.map((json) => GymPlanExercise.fromJson(json)).toList();
+  }
+
+  // Trainings
+  Future<GymTraining> createTraining(GymTraining training, List<GymSet> sets) async {
+    final db = await instance.database;
+    return await db.transaction((txn) async {
+      final trainingId = await txn.insert(GymTrainingFields.tableName, training.toJson());
+
+      for (var set in sets) {
+        final setWithId = set.copyWith(trainingId: trainingId);
+        await txn.insert(GymSetFields.tableName, setWithId.toJson());
+      }
+      return training.copyWith(id: trainingId);
+    });
+  }
+
+  Future<List<GymTraining>> getTrainingsForPlan(int planId) async {
+    final db = await instance.database;
+    final result = await db.query(
+      GymTrainingFields.tableName,
+      where: '${GymTrainingFields.planId} = ?',
+      whereArgs: [planId],
+      orderBy: '${GymTrainingFields.date} DESC',
+    );
+    return result.map((json) => GymTraining.fromJson(json)).toList();
+  }
+
+  Future<List<GymSet>> getSetsForTraining(int trainingId) async {
+    final db = await instance.database;
+    final result = await db.query(
+      GymSetFields.tableName,
+      where: '${GymSetFields.trainingId} = ?',
+      whereArgs: [trainingId],
+      orderBy: '${GymSetFields.equipmentId}, ${GymSetFields.setNumber}',
+    );
+    return result.map((json) => GymSet.fromJson(json)).toList();
+  }
+
+  // Helper to get last training for a plan to pre-fill values
+  Future<GymTraining?> getLastTraining(int planId) async {
+    final db = await instance.database;
+    final result = await db.query(
+      GymTrainingFields.tableName,
+      where: '${GymTrainingFields.planId} = ?',
+      whereArgs: [planId],
+      orderBy: '${GymTrainingFields.date} DESC',
+      limit: 1,
+    );
+
+    if (result.isNotEmpty) {
+      return GymTraining.fromJson(result.first);
+    }
+    return null;
+  }
+
+    // Cleanup old trash
+    Future<int> cleanupTrash() async {
+      final db = await instance.database;
+      return _cleanupTrash(db);
+    }
+
+    // Private helper to allow calling from _initDB
+    Future<int> _cleanupTrash(Database db) async {
+      final cutoff = DateTime.now().subtract(const Duration(days: 30));
+      return await db.delete(
+        DiaryEntryFields.tableName,
+        where: '${DiaryEntryFields.deletedAt} IS NOT NULL AND ${DiaryEntryFields.deletedAt} < ?',
+        whereArgs: [cutoff.toIso8601String()],
+      );
+    }
+
 
   Future close() async {
     final db = await instance.database;
