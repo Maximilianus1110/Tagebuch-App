@@ -31,48 +31,60 @@ class GymPlan {
 class GymPlanExercise {
   final int? id;
   final int planId;
-  final int equipmentId;
+  final int exerciseId; // Was equipmentId
   final int setCount;
   final int sortOrder;
+  final String? targetReps;
+  final bool isWarmup;
 
   GymPlanExercise({
     this.id,
     required this.planId,
-    required this.equipmentId,
+    required this.exerciseId,
     required this.setCount,
     required this.sortOrder,
+    this.targetReps,
+    this.isWarmup = false,
   });
 
   GymPlanExercise copyWith({
     int? id,
     int? planId,
-    int? equipmentId,
+    int? exerciseId,
     int? setCount,
     int? sortOrder,
+    String? targetReps,
+    bool? isWarmup,
   }) {
     return GymPlanExercise(
       id: id ?? this.id,
       planId: planId ?? this.planId,
-      equipmentId: equipmentId ?? this.equipmentId,
+      exerciseId: exerciseId ?? this.exerciseId,
       setCount: setCount ?? this.setCount,
       sortOrder: sortOrder ?? this.sortOrder,
+      targetReps: targetReps ?? this.targetReps,
+      isWarmup: isWarmup ?? this.isWarmup,
     );
   }
 
   Map<String, Object?> toJson() => {
         GymPlanExerciseFields.id: id,
         GymPlanExerciseFields.planId: planId,
-        GymPlanExerciseFields.equipmentId: equipmentId,
+        GymPlanExerciseFields.exerciseId: exerciseId,
         GymPlanExerciseFields.setCount: setCount,
         GymPlanExerciseFields.sortOrder: sortOrder,
+        if (targetReps != null) GymPlanExerciseFields.targetReps: targetReps,
+        GymPlanExerciseFields.isWarmup: isWarmup ? 1 : 0,
       };
 
   static GymPlanExercise fromJson(Map<String, Object?> json) => GymPlanExercise(
         id: json[GymPlanExerciseFields.id] as int?,
         planId: json[GymPlanExerciseFields.planId] as int,
-        equipmentId: json[GymPlanExerciseFields.equipmentId] as int,
+        exerciseId: json[GymPlanExerciseFields.exerciseId] as int,
         setCount: json[GymPlanExerciseFields.setCount] as int,
         sortOrder: json[GymPlanExerciseFields.sortOrder] as int,
+        targetReps: json[GymPlanExerciseFields.targetReps] as String?,
+        isWarmup: (json[GymPlanExerciseFields.isWarmup] as int?) == 1,
       );
 }
 
@@ -86,7 +98,9 @@ class GymPlanExerciseFields {
   static const String tableName = 'gym_plan_exercises';
   static const String id = '_id';
   static const String planId = 'plan_id';
-  static const String equipmentId = 'equipment_id';
+  static const String exerciseId = 'equipment_id'; // Keep old column name
   static const String setCount = 'set_count';
   static const String sortOrder = 'sort_order';
+  static const String targetReps = 'target_reps';
+  static const String isWarmup = 'is_warmup';
 }
