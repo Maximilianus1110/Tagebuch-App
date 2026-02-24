@@ -49,6 +49,11 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle(); // Should resolve quickly with mock
 
+    // Navigate to Diary
+    expect(find.text('Menü'), findsOneWidget);
+    await tester.tap(find.text('Tagebuch'));
+    await tester.pumpAndSettle();
+
     // 1. Verify Empty List
     expect(find.text('Keine Einträge vorhanden.'), findsOneWidget);
 
