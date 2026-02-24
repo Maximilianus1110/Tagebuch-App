@@ -12,8 +12,9 @@ class MockDatabaseHelper extends DatabaseHelper {
 
   @override
   Future<List<DiaryEntry>> readAllEntries() async {
-    // Return copy to simulate DB behavior
-    return List.from(entries)..sort((a, b) => b.date.compareTo(a.date));
+    // Return copy to simulate DB behavior, filtering out deleted
+    return entries.where((e) => e.deletedAt == null).toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
   }
 
   @override
@@ -35,8 +36,52 @@ class MockDatabaseHelper extends DatabaseHelper {
 
   @override
   Future<int> delete(int id) async {
+    // Soft delete
+    final index = entries.indexWhere((e) => e.id == id);
+    if (index != -1) {
+      entries[index] = DiaryEntry(
+        id: entries[index].id,
+        date: entries[index].date,
+        content: entries[index].content,
+        title: entries[index].title,
+        deletedAt: DateTime.now(),
+      );
+      return 1;
+    }
+    return 0;
+  }
+
+  @override
+  Future<List<DiaryEntry>> readTrashEntries() async {
+    return entries.where((e) => e.deletedAt != null).toList()
+      ..sort((a, b) => b.deletedAt!.compareTo(a.deletedAt!));
+  }
+
+  @override
+  Future<int> hardDelete(int id) async {
     entries.removeWhere((e) => e.id == id);
     return 1;
+  }
+
+  @override
+  Future<int> restore(int id) async {
+    final index = entries.indexWhere((e) => e.id == id);
+    if (index != -1) {
+        entries[index] = DiaryEntry(
+            id: entries[index].id,
+            date: entries[index].date,
+            content: entries[index].content,
+            title: entries[index].title,
+            deletedAt: null,
+        );
+        return 1;
+    }
+    return 0;
+  }
+
+  @override
+  Future<int> cleanupTrash() async {
+      return 0;
   }
 }
 
@@ -48,6 +93,11 @@ void main() {
   testWidgets('Create, Verify List, Search, Edit, Delete', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle(); // Should resolve quickly with mock
+
+    // Navigate to Diary
+    expect(find.text('Menü'), findsOneWidget);
+    await tester.tap(find.text('Tagebuch'));
+    await tester.pumpAndSettle();
 
     // 1. Verify Empty List
     expect(find.text('Keine Einträge vorhanden.'), findsOneWidget);
