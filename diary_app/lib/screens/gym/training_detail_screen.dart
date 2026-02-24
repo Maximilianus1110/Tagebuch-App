@@ -96,8 +96,15 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.planName),
-        subtitle: Text(DateFormat('dd.MM.yyyy HH:mm').format(widget.training.date)),
+        title: Column(
+          children: [
+            Text(widget.planName),
+            Text(
+              DateFormat('dd.MM.yyyy HH:mm').format(widget.training.date),
+              style: const TextStyle(fontSize: 14),
+            ),
+          ],
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

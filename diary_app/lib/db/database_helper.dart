@@ -380,7 +380,7 @@ CREATE TABLE IF NOT EXISTS ${GymSetFields.tableName} (
       GymSetFields.tableName,
       where: '${GymSetFields.trainingId} = ?',
       whereArgs: [trainingId],
-      orderBy: '${GymSetFields.equipmentId}, ${GymSetFields.setNumber}',
+      orderBy: '${GymSetFields.exerciseId}, ${GymSetFields.setNumber}',
     );
     return result.map((json) => GymSet.fromJson(json)).toList();
   }

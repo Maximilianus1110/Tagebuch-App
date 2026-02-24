@@ -143,7 +143,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
             const SizedBox(height: 32),
             const Text('Workouts pro Monat (Letzte 6 Monate)', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            SizedBox(height: 250, padding: const EdgeInsets.all(16), child: _buildWorkoutsBarChart()),
+            Container(
+              height: 250,
+              padding: const EdgeInsets.all(16),
+              child: _buildWorkoutsBarChart(),
+            ),
           ],
         ),
       ),
