@@ -1,13 +1,13 @@
-# GEMINI.md - Tagebuch-App Projektkontext
+# GEMINI.md - Tagebuch & Gym-App Projektkontext
 
 ## 1. WICHTIGER HINWEIS ZUR SPRACHE
 **Der Benutzer ist deutschsprachig.**
 *   Alle Interaktionen, Fragen und Antworten müssen auf **Deutsch** erfolgen.
-*   Die Dokumentation (DOKUMENTATION.md, SETUP.md) und Kommentare in Code-Bereichen, die für den Endnutzer relevant sind, sollten bevorzugt auf Deutsch verfasst werden oder zumindest verständlich sein.
+*   Die Dokumentation und Kommentare in Code-Bereichen, die für den Endnutzer relevant sind, sollten bevorzugt auf Deutsch verfasst werden.
 *   Code-Variable und Klassennamen bleiben in Englisch (Standard-Konvention), aber die Erklärung dazu erfolgt auf Deutsch.
 
 ## 2. Projektübersicht
-Minimalistisches, rein textbasiertes Android-Tagebuch mit Fokus auf Datensicherheit und Einfachheit.
+Eine kombinierte App für ein minimalistisches Tagebuch und einen funktionsreichen Gym-Tracker. Fokus auf Datensicherheit (lokale Speicherung) und Einfachheit.
 Nutzt Flutter für UI und Business Logic, SQLite für lokale Datenhaltung.
 
 ## 3. Tech Stack
@@ -17,40 +17,55 @@ Nutzt Flutter für UI und Business Logic, SQLite für lokale Datenhaltung.
 - **State Management:** `setState` (Lokal in Widgets für einfache Logik)
 - **Export:** `share_plus` (Teilen-Dialog), `path_provider` (Dateizugriff), `intl` (Datumsformatierung)
 
-## 4. Dateistruktur (Wichtigste Dateien)
+## 4. Dateistruktur (Kernkomponenten)
 ```
 diary_app/
 ├── lib/
 │   ├── main.dart               # App-Einstiegspunkt, Theme-Setup
-│   ├── models/
-│   │   └── diary_entry.dart    # Datenmodell für Tagebucheinträge (JSON serialization)
 │   ├── db/
-│   │   └── database_helper.dart # Singleton für SQLite-Interaktion (CRUD)
+│   │   └── database_helper.dart # Singleton für SQLite (Tagebuch & Gym CRUD)
+│   ├── models/
+│   │   ├── diary_entry.dart    # Tagebuchmodell (inkl. Soft-Delete & Titel)
+│   │   └── gym/                # Gym-Modelle (Equipment, Plans, Trainings, Sets)
 │   ├── screens/
-│   │   ├── home_screen.dart    # Liste aller Einträge + Export-Button
-│   │   └── add_entry_screen.dart # Formular für neue Einträge
-│   └── services/
-│       └── export_service.dart # Logik für Textdatei-Export und Teilen
-├── test/
-│   ├── widget_test.dart        # Integrationstests für UI und Navigation
-│   └── models/
-│       └── diary_entry_test.dart # Unit-Tests für Model-Logik
-├── pubspec.yaml                # Abhängigkeiten und Projektkonfiguration
-├── android/                    # Native Android-Konfigurationen
-│   └── app/src/main/AndroidManifest.xml # App-Label, Berechtigungen (Internet disabled for release)
+│   │   ├── home_screen.dart    # Hauptmenü (Auswahl: Gym / Tagebuch)
+│   │   ├── diary_screen.dart   # Liste der aktiven Tagebucheinträge
+│   │   ├── add_entry_screen.dart # Editor für neue/bestehende Einträge
+│   │   ├── trash_screen.dart   # Papierkorb für Tagebucheinträge (Auto-Delete nach 30 Tagen)
+│   │   ├── gym_screen.dart     # Übersicht der Trainingspläne
+│   │   └── gym/                # Gym-Detail-Screens (Planerstellung, Übungsverwaltung, Training)
+│   ├── services/
+│   │   ├── export_service.dart # Export von Tagebucheinträgen
+│   │   └── gym_service.dart    # Geschäftslogik für den Gym-Bereich
+│   └── widgets/
+│       └── app_drawer.dart     # App-Navigation (falls verwendet)
+├── test/                       # Unit- und Widget-Tests
+├── pubspec.yaml                # Abhängigkeiten
 ├── DOKUMENTATION.md            # Benutzerhandbuch (DE)
 └── SETUP.md                    # Installationsanleitung (DE)
 ```
 
-## 5. Wichtige Implementierungsdetails
-- **Datenbank:** `DatabaseHelper` implementiert Singleton-Pattern. `_createDB` erstellt Tabelle `entries` mit `_id`, `date`, `content`.
-- **Export:** `ExportService.exportEntries()` liest alle Daten, formatiert sie (`Datum: ...\nInhalt\n\n`), schreibt temporäre Datei und nutzt `Share.shareXFiles`.
-- **Sicherheit:** Release-Build hat keine Internet-Permission (`android.permission.INTERNET` nur im Debug-Manifest).
+## 5. Kernfunktionen & Implementierung
+### Tagebuch (Diary)
+- **CRUD:** Erstellen, Lesen, Aktualisieren, Löschen.
+- **Soft-Delete:** Gelöschte Einträge landen im `trash_screen.dart`.
+- **Auto-Cleanup:** Einträge im Papierkorb werden nach 30 Tagen automatisch endgültig gelöscht (`DatabaseHelper._cleanupTrash`).
+- **Export:** Alle aktiven Einträge können als Textdatei geteilt werden.
 
-## 6. Status
-- [x] Initialisierung (Flutter Project)
-- [x] Datenbank-Implementierung
-- [x] UI-Entwicklung (Liste, Hinzufügen)
-- [x] Export-Funktion
-- [x] Tests (Unit & Widget)
-- [x] Dokumentation (DE)
+### Gym-Tracker
+- **Übungsverwaltung:** Definition von Equipment/Übungen.
+- **Trainingspläne:** Zusammenstellung von Übungen zu individuellen Plänen.
+- **Trainingseinheiten:** Protokollierung von Sätzen (Gewicht, Wiederholungen) pro Training.
+- **Historie:** Einsehen vergangener Trainingseinheiten eines Plans.
+
+## 6. Datenbank-Schema (Version 4)
+- `entries`: Tagebuchdaten (`_id`, `date`, `content`, `title`, `deletedAt`).
+- `gym_equipment`: Liste der Übungen.
+- `gym_plans`: Kopfdaten der Trainingspläne.
+- `gym_plan_exercises`: Verknüpfung von Plänen und Übungen.
+- `gym_trainings`: Kopfdaten einer Trainingseinheit.
+- `gym_sets`: Einzelne Sätze pro Übung innerhalb eines Trainings.
+
+## 7. Sicherheit
+- Release-Build hat keine Internet-Berechtigung (`android.permission.INTERNET` deaktiviert).
+- Alle Daten werden ausschließlich lokal in der SQLite-Datenbank (`diary.db`) gespeichert.
