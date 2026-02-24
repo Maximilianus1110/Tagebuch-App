@@ -1,39 +1,97 @@
 import 'package:flutter/material.dart';
 import 'package:diary_app/models/gym/gym_plan.dart';
-import 'package:diary_app/models/gym/gym_equipment.dart';
+import 'package:diary_app/models/gym/gym_exercise.dart';
 import 'package:diary_app/services/gym_service.dart';
 
 class CreatePlanScreen extends StatefulWidget {
-  const CreatePlanScreen({super.key});
+  final GymPlan? plan;
+
+  const CreatePlanScreen({super.key, this.plan});
 
   @override
   State<CreatePlanScreen> createState() => _CreatePlanScreenState();
+}
+
+class PlanExerciseItem {
+  GymExercise exercise;
+  int sets;
+  String targetReps;
+  bool isWarmup;
+
+  PlanExerciseItem({
+    required this.exercise,
+    this.sets = 3,
+    this.targetReps = '',
+    this.isWarmup = false,
+  });
 }
 
 class _CreatePlanScreenState extends State<CreatePlanScreen> {
   final GymService _gymService = GymService();
   final _nameController = TextEditingController();
 
-  // List of added exercises. Each item is a map with equipment and set count.
-  final List<Map<String, dynamic>> _addedExercises = [];
-
+  final List<PlanExerciseItem> _addedExercises = [];
   bool _isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.plan != null) {
+      _nameController.text = widget.plan!.name;
+      _loadPlanDetails();
+    }
+  }
+
+  Future<void> _loadPlanDetails() async {
+    setState(() => _isLoading = true);
+    try {
+      final exercises = await _gymService.getExercisesForPlan(widget.plan!.id!);
+      final allExercises = await _gymService.getAllExercises();
+      final exerciseMap = {for (var ex in allExercises) ex.id: ex};
+
+      for (var ex in exercises) {
+        final exercise = exerciseMap[ex.exerciseId];
+        if (exercise != null) {
+          _addedExercises.add(PlanExerciseItem(
+            exercise: exercise,
+            sets: ex.setCount,
+            targetReps: ex.targetReps ?? '',
+            isWarmup: ex.isWarmup,
+          ));
+        }
+      }
+      setState(() => _isLoading = false);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Fehler beim Laden des Plans: $e')),
+      );
+      setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _addExercise() async {
-    // Open dialog to select equipment and sets
-    final result = await showDialog<Map<String, dynamic>>(
+    final result = await showDialog<PlanExerciseItem>(
       context: context,
-      builder: (context) => const _SelectEquipmentDialog(),
+      builder: (context) => const _ExerciseDialog(),
     );
 
     if (result != null) {
-      final equipment = result['equipment'] as GymEquipment;
-      final sets = result['sets'] as int;
       setState(() {
-        _addedExercises.add({
-          'equipment': equipment,
-          'sets': sets,
-        });
+        _addedExercises.add(result);
+      });
+    }
+  }
+
+  Future<void> _editExercise(int index) async {
+    final item = _addedExercises[index];
+    final result = await showDialog<PlanExerciseItem>(
+      context: context,
+      builder: (context) => _ExerciseDialog(initialItem: item),
+    );
+
+    if (result != null) {
+      setState(() {
+        _addedExercises[index] = result;
       });
     }
   }
@@ -58,19 +116,23 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     try {
       final exercises = _addedExercises.asMap().entries.map((entry) {
         final index = entry.key;
-        final map = entry.value;
-        final equipment = map['equipment'] as GymEquipment;
-        final sets = map['sets'] as int;
+        final item = entry.value;
 
         return GymPlanExercise(
-          planId: 0, // Ignored by createPlan
-          equipmentId: equipment.id!,
-          setCount: sets,
+          planId: widget.plan?.id ?? 0,
+          exerciseId: item.exercise.id!,
+          setCount: item.sets,
           sortOrder: index,
+          targetReps: item.targetReps,
+          isWarmup: item.isWarmup,
         );
       }).toList();
 
-      await _gymService.createPlan(GymPlan(name: name), exercises);
+      if (widget.plan != null) {
+        await _gymService.updatePlan(widget.plan!.copyWith(name: name), exercises);
+      } else {
+        await _gymService.createPlan(GymPlan(name: name), exercises);
+      }
 
       if (mounted) {
         Navigator.pop(context, true); // Return success
@@ -89,7 +151,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Neuer Trainingsplan'),
+        title: Text(widget.plan != null ? 'Plan bearbeiten' : 'Neuer Trainingsplan'),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -103,6 +165,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                       labelText: 'Name des Plans',
                       border: OutlineInputBorder(),
                     ),
+                    textCapitalization: TextCapitalization.sentences,
                   ),
                 ),
                 Expanded(
@@ -113,23 +176,51 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                             style: TextStyle(color: Theme.of(context).disabledColor),
                           ),
                         )
-                      : ListView.builder(
+                      : ReorderableListView.builder(
                           itemCount: _addedExercises.length,
+                          onReorder: (oldIndex, newIndex) {
+                            setState(() {
+                              if (oldIndex < newIndex) {
+                                newIndex -= 1;
+                              }
+                              final item = _addedExercises.removeAt(oldIndex);
+                              _addedExercises.insert(newIndex, item);
+                            });
+                          },
                           itemBuilder: (context, index) {
                             final item = _addedExercises[index];
-                            final equipment = item['equipment'] as GymEquipment;
-                            final sets = item['sets'] as int;
-                            return ListTile(
-                              leading: CircleAvatar(child: Text('${index + 1}')),
-                              title: Text(equipment.name),
-                              subtitle: Text('$sets Sätze'),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.delete),
-                                onPressed: () {
-                                  setState(() {
-                                    _addedExercises.removeAt(index);
-                                  });
-                                },
+                            return Card(
+                              key: ObjectKey(item), // Unique key for reordering
+                              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: item.isWarmup ? Colors.orangeAccent : Theme.of(context).primaryColor,
+                                  foregroundColor: Colors.white,
+                                  child: item.isWarmup ? const Icon(Icons.hot_tub, size: 20) : Text('${index + 1}'),
+                                ),
+                                title: Text(item.exercise.name),
+                                subtitle: Text(
+                                  '${item.sets} Sätze${item.targetReps.isNotEmpty ? ' • ${item.targetReps} Wdh.' : ''}${item.isWarmup ? ' • Aufwärmen' : ''}',
+                                ),
+                                onTap: () => _editExercise(index),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, color: Colors.grey),
+                                      onPressed: () => _editExercise(index),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete, color: Colors.redAccent),
+                                      onPressed: () {
+                                        setState(() {
+                                          _addedExercises.removeAt(index);
+                                        });
+                                      },
+                                    ),
+                                    const Icon(Icons.drag_handle, color: Colors.grey),
+                                  ],
+                                ),
                               ),
                             );
                           },
@@ -143,14 +234,14 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                         child: OutlinedButton.icon(
                           onPressed: _addExercise,
                           icon: const Icon(Icons.add),
-                          label: const Text('Gerät hinzufügen'),
+                          label: const Text('Übung hinzufügen'),
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: ElevatedButton(
                           onPressed: _savePlan,
-                          child: const Text('Plan speichern'),
+                          child: Text(widget.plan != null ? 'Änderungen speichern' : 'Plan speichern'),
                         ),
                       ),
                     ],
@@ -162,29 +253,42 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   }
 }
 
-class _SelectEquipmentDialog extends StatefulWidget {
-  const _SelectEquipmentDialog();
+class _ExerciseDialog extends StatefulWidget {
+  final PlanExerciseItem? initialItem;
+
+  const _ExerciseDialog({this.initialItem});
 
   @override
-  State<_SelectEquipmentDialog> createState() => _SelectEquipmentDialogState();
+  State<_ExerciseDialog> createState() => _ExerciseDialogState();
 }
 
-class _SelectEquipmentDialogState extends State<_SelectEquipmentDialog> {
+class _ExerciseDialogState extends State<_ExerciseDialog> {
   final GymService _gymService = GymService();
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _setsController = TextEditingController(text: '3');
+  final TextEditingController _targetRepsController = TextEditingController();
 
-  List<GymEquipment> _allEquipment = [];
-  List<GymEquipment> _filteredEquipment = [];
+  List<GymExercise> _allExercises = [];
+  List<GymExercise> _filteredExercises = [];
   bool _isLoading = true;
+  bool _isWarmup = false;
 
-  // Step 1: Select Equipment. Step 2: Select Sets.
-  GymEquipment? _selectedEquipment;
+  // Step 1: Select Exercise. Step 2: Details.
+  GymExercise? _selectedExercise;
 
   @override
   void initState() {
     super.initState();
-    _loadEquipment();
+    if (widget.initialItem != null) {
+      _selectedExercise = widget.initialItem!.exercise;
+      _setsController.text = widget.initialItem!.sets.toString();
+      _targetRepsController.text = widget.initialItem!.targetReps;
+      _isWarmup = widget.initialItem!.isWarmup;
+      _isLoading = false; // Skip loading list if editing (unless we want to allow changing exercise?)
+      // If editing, we stay on details view.
+    } else {
+      _loadExercises();
+    }
     _searchController.addListener(_filter);
   }
 
@@ -192,77 +296,111 @@ class _SelectEquipmentDialogState extends State<_SelectEquipmentDialog> {
   void dispose() {
     _searchController.dispose();
     _setsController.dispose();
+    _targetRepsController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadEquipment() async {
-    final list = await _gymService.getAllEquipment();
-    if (mounted) {
-      setState(() {
-        _allEquipment = list;
-        _filteredEquipment = list;
-        _isLoading = false;
-      });
+  Future<void> _loadExercises() async {
+    try {
+      final list = await _gymService.getAllExercises();
+      if (mounted) {
+        setState(() {
+          _allExercises = list;
+          _filteredExercises = list;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      // Handle error
     }
   }
 
   void _filter() {
     final query = _searchController.text.toLowerCase();
     setState(() {
-      _filteredEquipment = _allEquipment
+      _filteredExercises = _allExercises
           .where((e) => e.name.toLowerCase().contains(query))
           .toList();
     });
   }
 
-  Future<void> _createNewEquipment() async {
+  Future<void> _createNewExercise() async {
     final name = _searchController.text.trim();
     if (name.isEmpty) return;
 
-    final newEq = await _gymService.addEquipment(name);
+    final newEx = await _gymService.addExercise(name);
     // Reload and select
-    final list = await _gymService.getAllEquipment();
+    final list = await _gymService.getAllExercises();
     if (mounted) {
       setState(() {
-        _allEquipment = list;
-        _filteredEquipment = list;
-        _selectedEquipment = newEq;
-        _searchController.clear(); // Or keep it?
+        _allExercises = list;
+        _filteredExercises = list;
+        _selectedExercise = newEx;
+        _searchController.clear();
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // If equipment is selected, show Sets input
-    if (_selectedEquipment != null) {
+    // If exercise is selected, show Details input
+    if (_selectedExercise != null) {
       return AlertDialog(
-        title: Text(_selectedEquipment!.name),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _setsController,
-              decoration: const InputDecoration(labelText: 'Anzahl Sätze'),
-              keyboardType: TextInputType.number,
-              autofocus: true,
-            ),
-          ],
+        title: Text(_selectedExercise!.name),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _setsController,
+                decoration: const InputDecoration(labelText: 'Anzahl Sätze'),
+                keyboardType: TextInputType.number,
+                autofocus: true,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _targetRepsController,
+                decoration: const InputDecoration(
+                  labelText: 'Ziel-Wiederholungen (z.B. 6-8)',
+                  hintText: '6-8',
+                ),
+              ),
+              const SizedBox(height: 16),
+              CheckboxListTile(
+                title: const Text('Aufwärmsatz'),
+                value: _isWarmup,
+                onChanged: (val) {
+                  setState(() {
+                    _isWarmup = val ?? false;
+                  });
+                },
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            ],
+          ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => setState(() => _selectedEquipment = null),
-            child: const Text('Zurück'),
-          ),
+          if (widget.initialItem == null) // Only show back if we came from selection
+            TextButton(
+              onPressed: () => setState(() => _selectedExercise = null),
+              child: const Text('Zurück'),
+            ),
           ElevatedButton(
             onPressed: () {
               final sets = int.tryParse(_setsController.text) ?? 3;
-              Navigator.pop(context, {
-                'equipment': _selectedEquipment,
-                'sets': sets,
-              });
+              final targetReps = _targetRepsController.text.trim();
+              Navigator.pop(
+                context,
+                PlanExerciseItem(
+                  exercise: _selectedExercise!,
+                  sets: sets,
+                  targetReps: targetReps,
+                  isWarmup: _isWarmup,
+                ),
+              );
             },
-            child: const Text('Hinzufügen'),
+            child: Text(widget.initialItem != null ? 'Speichern' : 'Hinzufügen'),
           ),
         ],
       );
@@ -270,7 +408,7 @@ class _SelectEquipmentDialogState extends State<_SelectEquipmentDialog> {
 
     // Otherwise show search list
     return AlertDialog(
-      title: const Text('Gerät auswählen'),
+      title: const Text('Übung auswählen'),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
@@ -289,18 +427,19 @@ class _SelectEquipmentDialogState extends State<_SelectEquipmentDialog> {
                 : Flexible(
                     child: ListView.builder(
                       shrinkWrap: true,
-                      itemCount: _filteredEquipment.length +
+                      itemCount: _filteredExercises.length +
                         (_searchController.text.isNotEmpty &&
-                         !_filteredEquipment.any((e) => e.name.toLowerCase() == _searchController.text.toLowerCase())
+                         !_filteredExercises.any((e) => e.name.toLowerCase() == _searchController.text.toLowerCase())
                          ? 1 : 0),
                       itemBuilder: (context, index) {
-                        if (index < _filteredEquipment.length) {
-                          final eq = _filteredEquipment[index];
+                        if (index < _filteredExercises.length) {
+                          final ex = _filteredExercises[index];
                           return ListTile(
-                            title: Text(eq.name),
+                            title: Text(ex.name),
+                            subtitle: ex.description != null ? Text(ex.description!, maxLines: 1, overflow: TextOverflow.ellipsis) : null,
                             onTap: () {
                               setState(() {
-                                _selectedEquipment = eq;
+                                _selectedExercise = ex;
                               });
                             },
                           );
@@ -309,7 +448,7 @@ class _SelectEquipmentDialogState extends State<_SelectEquipmentDialog> {
                           return ListTile(
                             leading: const Icon(Icons.add),
                             title: Text('Neu erstellen: "${_searchController.text}"'),
-                            onTap: _createNewEquipment,
+                            onTap: _createNewExercise,
                           );
                         }
                       },

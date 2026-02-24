@@ -1,5 +1,5 @@
 import 'package:diary_app/models/diary_entry.dart';
-import 'package:diary_app/models/gym/gym_equipment.dart';
+import 'package:diary_app/models/gym/gym_exercise.dart';
 import 'package:diary_app/models/gym/gym_plan.dart';
 import 'package:diary_app/models/gym/gym_training.dart';
 import 'package:flutter/foundation.dart';
@@ -38,7 +38,7 @@ class DatabaseHelper {
 
     final db = await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -81,6 +81,28 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
     if (oldVersion < 4) {
       await _createGymTables(db);
     }
+    if (oldVersion < 5) {
+      // Add missing columns to gym tables if they already existed from a previous version 4
+      try {
+        await db.execute('ALTER TABLE ${GymExerciseFields.tableName} ADD COLUMN ${GymExerciseFields.description} TEXT');
+      } catch (_) {} // Column might already exist
+
+      try {
+        await db.execute('ALTER TABLE ${GymPlanExerciseFields.tableName} ADD COLUMN ${GymPlanExerciseFields.targetReps} TEXT');
+      } catch (_) {}
+
+      try {
+        await db.execute('ALTER TABLE ${GymPlanExerciseFields.tableName} ADD COLUMN ${GymPlanExerciseFields.isWarmup} INTEGER NOT NULL DEFAULT 0');
+      } catch (_) {}
+
+      try {
+        await db.execute('ALTER TABLE ${GymSetFields.tableName} ADD COLUMN ${GymSetFields.durationSeconds} INTEGER');
+      } catch (_) {}
+
+      try {
+        await db.execute('ALTER TABLE ${GymSetFields.tableName} ADD COLUMN ${GymSetFields.isWarmup} INTEGER NOT NULL DEFAULT 0');
+      } catch (_) {}
+    }
   }
 
   Future _createGymTables(Database db) async {
@@ -92,11 +114,12 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
     const textNullable = 'TEXT';
     const intNullable = 'INTEGER';
 
-    // Gym Equipment
+    // Gym Exercises
     await db.execute('''
-CREATE TABLE IF NOT EXISTS ${GymEquipmentFields.tableName} (
-  ${GymEquipmentFields.id} $idType,
-  ${GymEquipmentFields.name} $textType
+CREATE TABLE IF NOT EXISTS ${GymExerciseFields.tableName} (
+  ${GymExerciseFields.id} $idType,
+  ${GymExerciseFields.name} $textType,
+  ${GymExerciseFields.description} $textNullable
 )
 ''');
 
@@ -113,11 +136,13 @@ CREATE TABLE IF NOT EXISTS ${GymPlanFields.tableName} (
 CREATE TABLE IF NOT EXISTS ${GymPlanExerciseFields.tableName} (
   ${GymPlanExerciseFields.id} $idType,
   ${GymPlanExerciseFields.planId} $intType,
-  ${GymPlanExerciseFields.equipmentId} $intType,
+  ${GymPlanExerciseFields.exerciseId} $intType,
   ${GymPlanExerciseFields.setCount} $intType,
   ${GymPlanExerciseFields.sortOrder} $intType,
+  ${GymPlanExerciseFields.targetReps} $textNullable,
+  ${GymPlanExerciseFields.isWarmup} $boolType,
   FOREIGN KEY (${GymPlanExerciseFields.planId}) REFERENCES ${GymPlanFields.tableName} (${GymPlanFields.id}) ON DELETE CASCADE,
-  FOREIGN KEY (${GymPlanExerciseFields.equipmentId}) REFERENCES ${GymEquipmentFields.tableName} (${GymEquipmentFields.id})
+  FOREIGN KEY (${GymPlanExerciseFields.exerciseId}) REFERENCES ${GymExerciseFields.tableName} (${GymExerciseFields.id})
 )
 ''');
 
@@ -137,13 +162,15 @@ CREATE TABLE IF NOT EXISTS ${GymTrainingFields.tableName} (
 CREATE TABLE IF NOT EXISTS ${GymSetFields.tableName} (
   ${GymSetFields.id} $idType,
   ${GymSetFields.trainingId} $intType,
-  ${GymSetFields.equipmentId} $intType,
+  ${GymSetFields.exerciseId} $intType,
   ${GymSetFields.setNumber} $intType,
   ${GymSetFields.reps} $intNullable,
   ${GymSetFields.weight} $realType,
   ${GymSetFields.isDone} $boolType,
+  ${GymSetFields.durationSeconds} $intNullable,
+  ${GymSetFields.isWarmup} $boolType,
   FOREIGN KEY (${GymSetFields.trainingId}) REFERENCES ${GymTrainingFields.tableName} (${GymTrainingFields.id}) ON DELETE CASCADE,
-  FOREIGN KEY (${GymSetFields.equipmentId}) REFERENCES ${GymEquipmentFields.tableName} (${GymEquipmentFields.id})
+  FOREIGN KEY (${GymSetFields.exerciseId}) REFERENCES ${GymExerciseFields.tableName} (${GymExerciseFields.id})
 )
 ''');
   }
@@ -251,17 +278,27 @@ CREATE TABLE IF NOT EXISTS ${GymSetFields.tableName} (
 
   // --- Gym CRUD Methods ---
 
-  // Equipment
-  Future<GymEquipment> createEquipment(GymEquipment equipment) async {
+  // Exercises
+  Future<GymExercise> createExercise(GymExercise exercise) async {
     final db = await instance.database;
-    final id = await db.insert(GymEquipmentFields.tableName, equipment.toJson());
-    return equipment.copyWith(id: id);
+    final id = await db.insert(GymExerciseFields.tableName, exercise.toJson());
+    return exercise.copyWith(id: id);
   }
 
-  Future<List<GymEquipment>> getAllEquipment() async {
+  Future<List<GymExercise>> getAllExercises() async {
     final db = await instance.database;
-    final result = await db.query(GymEquipmentFields.tableName, orderBy: '${GymEquipmentFields.name} ASC');
-    return result.map((json) => GymEquipment.fromJson(json)).toList();
+    final result = await db.query(GymExerciseFields.tableName, orderBy: '${GymExerciseFields.name} ASC');
+    return result.map((json) => GymExercise.fromJson(json)).toList();
+  }
+
+  Future<int> updateExercise(GymExercise exercise) async {
+    final db = await instance.database;
+    return db.update(
+      GymExerciseFields.tableName,
+      exercise.toJson(),
+      where: '${GymExerciseFields.id} = ?',
+      whereArgs: [exercise.id],
+    );
   }
 
   // Plans
@@ -277,6 +314,52 @@ CREATE TABLE IF NOT EXISTS ${GymSetFields.tableName} (
       }
 
       return plan.copyWith(id: planId);
+    });
+  }
+
+  Future<int> updatePlan(GymPlan plan, List<GymPlanExercise> exercises) async {
+    final db = await instance.database;
+    return await db.transaction((txn) async {
+      // 1. Update plan name
+      await txn.update(
+        GymPlanFields.tableName,
+        plan.toJson(),
+        where: '${GymPlanFields.id} = ?',
+        whereArgs: [plan.id],
+      );
+
+      // 2. Delete old exercises
+      await txn.delete(
+        GymPlanExerciseFields.tableName,
+        where: '${GymPlanExerciseFields.planId} = ?',
+        whereArgs: [plan.id],
+      );
+
+      // 3. Insert new exercises
+      for (var exercise in exercises) {
+        final exerciseWithPlanId = exercise.copyWith(planId: plan.id);
+        await txn.insert(GymPlanExerciseFields.tableName, exerciseWithPlanId.toJson());
+      }
+
+      return 1;
+    });
+  }
+
+  Future<int> deletePlan(int id) async {
+    final db = await instance.database;
+    return await db.transaction((txn) async {
+      // Delete exercises for plan
+      await txn.delete(
+        GymPlanExerciseFields.tableName,
+        where: '${GymPlanExerciseFields.planId} = ?',
+        whereArgs: [id],
+      );
+      // Delete plan
+      return await txn.delete(
+        GymPlanFields.tableName,
+        where: '${GymPlanFields.id} = ?',
+        whereArgs: [id],
+      );
     });
   }
 
@@ -311,6 +394,24 @@ CREATE TABLE IF NOT EXISTS ${GymSetFields.tableName} (
     });
   }
 
+  Future<int> deleteTraining(int id) async {
+    final db = await instance.database;
+    return await db.transaction((txn) async {
+      // Delete sets for training
+      await txn.delete(
+        GymSetFields.tableName,
+        where: '${GymSetFields.trainingId} = ?',
+        whereArgs: [id],
+      );
+      // Delete training
+      return await txn.delete(
+        GymTrainingFields.tableName,
+        where: '${GymTrainingFields.id} = ?',
+        whereArgs: [id],
+      );
+    });
+  }
+
   Future<List<GymTraining>> getTrainingsForPlan(int planId) async {
     final db = await instance.database;
     final result = await db.query(
@@ -328,24 +429,48 @@ CREATE TABLE IF NOT EXISTS ${GymSetFields.tableName} (
       GymSetFields.tableName,
       where: '${GymSetFields.trainingId} = ?',
       whereArgs: [trainingId],
-      orderBy: '${GymSetFields.equipmentId}, ${GymSetFields.setNumber}',
+      orderBy: '${GymSetFields.exerciseId}, ${GymSetFields.setNumber}',
     );
     return result.map((json) => GymSet.fromJson(json)).toList();
   }
 
   // Helper to get last training for a plan to pre-fill values
-  Future<GymTraining?> getLastTraining(int planId) async {
+  Future<GymTraining?> getLastTraining(int planId, {DateTime? beforeDate}) async {
     final db = await instance.database;
+    
+    String? whereClause = '${GymTrainingFields.planId} = ?';
+    List<dynamic> whereArgs = [planId];
+    
+    if (beforeDate != null) {
+      whereClause += ' AND ${GymTrainingFields.date} < ?';
+      whereArgs.add(beforeDate.toIso8601String());
+    }
+
     final result = await db.query(
       GymTrainingFields.tableName,
-      where: '${GymTrainingFields.planId} = ?',
-      whereArgs: [planId],
+      where: whereClause,
+      whereArgs: whereArgs,
       orderBy: '${GymTrainingFields.date} DESC',
       limit: 1,
     );
 
     if (result.isNotEmpty) {
       return GymTraining.fromJson(result.first);
+    }
+    return null;
+  }
+
+  Future<GymSet?> getLatestSetForExercise(int exerciseId) async {
+    final db = await instance.database;
+    final result = await db.query(
+      GymSetFields.tableName,
+      where: '${GymSetFields.exerciseId} = ? AND ${GymSetFields.isDone} = 1',
+      orderBy: '${GymSetFields.id} DESC',
+      limit: 1,
+    );
+
+    if (result.isNotEmpty) {
+      return GymSet.fromJson(result.first);
     }
     return null;
   }
