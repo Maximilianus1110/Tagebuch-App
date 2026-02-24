@@ -4,7 +4,9 @@ import 'package:diary_app/models/gym/gym_exercise.dart';
 import 'package:diary_app/services/gym_service.dart';
 
 class CreatePlanScreen extends StatefulWidget {
-  const CreatePlanScreen({super.key});
+  final GymPlan? plan;
+
+  const CreatePlanScreen({super.key, this.plan});
 
   @override
   State<CreatePlanScreen> createState() => _CreatePlanScreenState();
@@ -30,6 +32,42 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
 
   final List<PlanExerciseItem> _addedExercises = [];
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.plan != null) {
+      _nameController.text = widget.plan!.name;
+      _loadPlanDetails();
+    }
+  }
+
+  Future<void> _loadPlanDetails() async {
+    setState(() => _isLoading = true);
+    try {
+      final exercises = await _gymService.getExercisesForPlan(widget.plan!.id!);
+      final allExercises = await _gymService.getAllExercises();
+      final exerciseMap = {for (var ex in allExercises) ex.id: ex};
+
+      for (var ex in exercises) {
+        final exercise = exerciseMap[ex.exerciseId];
+        if (exercise != null) {
+          _addedExercises.add(PlanExerciseItem(
+            exercise: exercise,
+            sets: ex.setCount,
+            targetReps: ex.targetReps ?? '',
+            isWarmup: ex.isWarmup,
+          ));
+        }
+      }
+      setState(() => _isLoading = false);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Fehler beim Laden des Plans: $e')),
+      );
+      setState(() => _isLoading = false);
+    }
+  }
 
   Future<void> _addExercise() async {
     final result = await showDialog<PlanExerciseItem>(
@@ -81,7 +119,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
         final item = entry.value;
 
         return GymPlanExercise(
-          planId: 0, // Ignored by createPlan
+          planId: widget.plan?.id ?? 0,
           exerciseId: item.exercise.id!,
           setCount: item.sets,
           sortOrder: index,
@@ -90,7 +128,11 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
         );
       }).toList();
 
-      await _gymService.createPlan(GymPlan(name: name), exercises);
+      if (widget.plan != null) {
+        await _gymService.updatePlan(widget.plan!.copyWith(name: name), exercises);
+      } else {
+        await _gymService.createPlan(GymPlan(name: name), exercises);
+      }
 
       if (mounted) {
         Navigator.pop(context, true); // Return success
@@ -109,7 +151,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Neuer Trainingsplan'),
+        title: Text(widget.plan != null ? 'Plan bearbeiten' : 'Neuer Trainingsplan'),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -199,7 +241,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: _savePlan,
-                          child: const Text('Plan speichern'),
+                          child: Text(widget.plan != null ? 'Änderungen speichern' : 'Plan speichern'),
                         ),
                       ),
                     ],

@@ -365,79 +365,8 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                             ),
                           ),
                           const Divider(),
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: exercise.sets.length,
-                            itemBuilder: (context, setIndex) {
-                              final set = exercise.sets[setIndex];
-                              return Container(
-                                color: set.isWarmup ? Colors.orange.withOpacity(0.1) : (set.isDone ? Colors.green.withOpacity(0.1) : null),
-                                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                                child: Row(
-                                  children: [
-                                    SizedBox(
-                                      width: 30,
-                                      child: InkWell(
-                                        onTap: () {
-                                          setState(() {
-                                            set.isWarmup = !set.isWarmup;
-                                          });
-                                        },
-                                        child: CircleAvatar(
-                                            radius: 12,
-                                            backgroundColor: set.isWarmup ? Colors.orange : Colors.grey.shade300,
-                                            child: Text('${set.setNumber}', style: const TextStyle(fontSize: 12, color: Colors.white)),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: TextField(
-                                        controller: set.weightController,
-                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                        decoration: const InputDecoration(
-                                          border: OutlineInputBorder(),
-                                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                          isDense: true,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: TextField(
-                                        controller: set.repsController,
-                                        keyboardType: TextInputType.number,
-                                        decoration: const InputDecoration(
-                                          border: OutlineInputBorder(),
-                                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                          isDense: true,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    SizedBox(
-                                      width: 60,
-                                      child: ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          padding: EdgeInsets.zero,
-                                          backgroundColor: set.isActive ? Colors.red : (set.isDone ? Colors.green : Theme.of(context).primaryColor),
-                                          foregroundColor: Colors.white,
-                                          minimumSize: const Size(60, 36),
-                                        ),
-                                        onPressed: () => _toggleSetTimer(set),
-                                        child: set.isActive
-                                          ? const Icon(Icons.stop, size: 20)
-                                          : (set.isDone ? const Icon(Icons.check, size: 20) : const Text('GO')),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
+                          _buildSetsList(exercise.sets.where((s) => s.isWarmup).toList(), 'Aufwärmsätze', Colors.orange),
+                          _buildSetsList(exercise.sets.where((s) => !s.isWarmup).toList(), 'Arbeitssätze', Theme.of(context).primaryColor),
                           const SizedBox(height: 8),
                         ],
                       ),
@@ -484,6 +413,105 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSetsList(List<SessionSet> sets, String title, Color color) {
+    if (sets.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Text(
+            title,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: color,
+            ),
+          ),
+        ),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: sets.length,
+          itemBuilder: (context, setIndex) {
+            final set = sets[setIndex];
+            return Container(
+              color: set.isWarmup
+                  ? Colors.orange.withOpacity(0.05)
+                  : (set.isDone ? Colors.green.withOpacity(0.05) : null),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 30,
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          set.isWarmup = !set.isWarmup;
+                        });
+                      },
+                      child: CircleAvatar(
+                        radius: 12,
+                        backgroundColor: set.isWarmup ? Colors.orange : Colors.grey.shade300,
+                        child: Text('${set.setNumber}',
+                            style: const TextStyle(fontSize: 12, color: Colors.white)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextField(
+                      controller: set.weightController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        isDense: true,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextField(
+                      controller: set.repsController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        isDense: true,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: 60,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        backgroundColor: set.isActive
+                            ? Colors.red
+                            : (set.isDone ? Colors.green : Theme.of(context).primaryColor),
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(60, 36),
+                      ),
+                      onPressed: () => _toggleSetTimer(set),
+                      child: set.isActive
+                          ? const Icon(Icons.stop, size: 20)
+                          : (set.isDone ? const Icon(Icons.check, size: 20) : const Text('GO')),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 

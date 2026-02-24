@@ -317,6 +317,52 @@ CREATE TABLE IF NOT EXISTS ${GymSetFields.tableName} (
     });
   }
 
+  Future<int> updatePlan(GymPlan plan, List<GymPlanExercise> exercises) async {
+    final db = await instance.database;
+    return await db.transaction((txn) async {
+      // 1. Update plan name
+      await txn.update(
+        GymPlanFields.tableName,
+        plan.toJson(),
+        where: '${GymPlanFields.id} = ?',
+        whereArgs: [plan.id],
+      );
+
+      // 2. Delete old exercises
+      await txn.delete(
+        GymPlanExerciseFields.tableName,
+        where: '${GymPlanExerciseFields.planId} = ?',
+        whereArgs: [plan.id],
+      );
+
+      // 3. Insert new exercises
+      for (var exercise in exercises) {
+        final exerciseWithPlanId = exercise.copyWith(planId: plan.id);
+        await txn.insert(GymPlanExerciseFields.tableName, exerciseWithPlanId.toJson());
+      }
+
+      return 1;
+    });
+  }
+
+  Future<int> deletePlan(int id) async {
+    final db = await instance.database;
+    return await db.transaction((txn) async {
+      // Delete exercises for plan
+      await txn.delete(
+        GymPlanExerciseFields.tableName,
+        where: '${GymPlanExerciseFields.planId} = ?',
+        whereArgs: [id],
+      );
+      // Delete plan
+      return await txn.delete(
+        GymPlanFields.tableName,
+        where: '${GymPlanFields.id} = ?',
+        whereArgs: [id],
+      );
+    });
+  }
+
   Future<List<GymPlan>> getAllPlans() async {
     final db = await instance.database;
     final result = await db.query(GymPlanFields.tableName, orderBy: '${GymPlanFields.name} ASC');
@@ -345,6 +391,24 @@ CREATE TABLE IF NOT EXISTS ${GymSetFields.tableName} (
         await txn.insert(GymSetFields.tableName, setWithId.toJson());
       }
       return training.copyWith(id: trainingId);
+    });
+  }
+
+  Future<int> deleteTraining(int id) async {
+    final db = await instance.database;
+    return await db.transaction((txn) async {
+      // Delete sets for training
+      await txn.delete(
+        GymSetFields.tableName,
+        where: '${GymSetFields.trainingId} = ?',
+        whereArgs: [id],
+      );
+      // Delete training
+      return await txn.delete(
+        GymTrainingFields.tableName,
+        where: '${GymTrainingFields.id} = ?',
+        whereArgs: [id],
+      );
     });
   }
 

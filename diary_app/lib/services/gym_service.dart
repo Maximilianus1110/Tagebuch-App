@@ -43,6 +43,14 @@ class GymService {
     return await _dbHelper.createPlan(plan, exercises);
   }
 
+  Future<int> updatePlan(GymPlan plan, List<GymPlanExercise> exercises) async {
+    return await _dbHelper.updatePlan(plan, exercises);
+  }
+
+  Future<int> deletePlan(int id) async {
+    return await _dbHelper.deletePlan(id);
+  }
+
   Future<List<GymPlanExercise>> getExercisesForPlan(int planId) async {
     return await _dbHelper.getExercisesForPlan(planId);
   }
@@ -50,6 +58,10 @@ class GymService {
   // --- Training ---
   Future<GymTraining> saveTraining(GymTraining training, List<GymSet> sets) async {
     return await _dbHelper.createTraining(training, sets);
+  }
+
+  Future<int> deleteTraining(int id) async {
+    return await _dbHelper.deleteTraining(id);
   }
 
   Future<List<GymSet>> getSetsForTraining(int trainingId) async {

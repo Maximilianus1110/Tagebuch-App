@@ -254,11 +254,58 @@ class _GymScreenState extends State<GymScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                viewModel.plan.name,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      viewModel.plan.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    onSelected: (value) async {
+                      if (value == 'edit') {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => CreatePlanScreen(plan: viewModel.plan),
+                          ),
+                        ).then((_) => _refresh());
+                      } else if (value == 'delete') {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Plan löschen?'),
+                            content: const Text('Möchtest du diesen Trainingsplan wirklich löschen?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Abbrechen'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('Löschen', style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          await _gymService.deletePlan(viewModel.plan.id!);
+                          _refresh();
+                        }
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(value: 'edit', child: Text('Bearbeiten')),
+                      const PopupMenuItem(value: 'delete', child: Text('Löschen')),
+                    ],
+                    icon: const Icon(Icons.more_vert, size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               Expanded(
@@ -319,6 +366,30 @@ class _GymScreenState extends State<GymScreen> {
               ),
             ),
           );
+        },
+        onLongPress: () async {
+          final confirm = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Training löschen?'),
+              content: const Text('Möchtest du dieses Training wirklich löschen?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Abbrechen'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Löschen', style: TextStyle(color: Colors.red)),
+                ),
+              ],
+            ),
+          );
+
+          if (confirm == true) {
+            await _gymService.deleteTraining(item.training.id!);
+            _refresh();
+          }
         },
         child: Padding(
           padding: const EdgeInsets.all(16.0),
