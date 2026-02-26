@@ -4,7 +4,8 @@ import 'package:diary_app/models/gym/gym_plan.dart';
 import 'package:diary_app/models/gym/gym_exercise.dart';
 import 'package:diary_app/models/gym/gym_training.dart';
 import 'package:diary_app/services/gym_service.dart';
-import 'package:intl/intl.dart';
+import 'package:diary_app/services/settings_service.dart';
+import 'package:vibration/vibration.dart';
 
 class TrainingSessionScreen extends StatefulWidget {
   final GymPlan plan;
@@ -58,6 +59,7 @@ class SessionExercise {
 
 class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
   final GymService _gymService = GymService();
+  final SettingsService _settingsService = SettingsService();
 
   List<SessionExercise> _exercises = [];
   bool _isLoading = true;
@@ -67,6 +69,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
   Timer? _restTimer;
   int _restSeconds = 0;
   bool _isResting = false;
+  int _targetRestDuration = 150; // Default 2:30, will be updated from settings
 
   // Active Set Timer (to update UI if needed, though main logic uses timestamps)
   Timer? _activeSetTicker;
@@ -78,6 +81,16 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
       _sessionStartTime = widget.date!;
     }
     _loadSession();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final duration = await _settingsService.getRestTimerDuration();
+    if (mounted) {
+      setState(() {
+        _targetRestDuration = duration;
+      });
+    }
   }
 
   @override
@@ -221,11 +234,18 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
     _restTimer?.cancel();
     _restSeconds = 0;
     _isResting = true;
-    _restTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _restTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       if (mounted) {
         setState(() {
           _restSeconds++;
         });
+
+        // Trigger vibration if target reached
+        if (_restSeconds == _targetRestDuration) {
+           if (await Vibration.hasVibrator() ?? false) {
+             Vibration.vibrate();
+           }
+        }
       }
     });
   }
@@ -238,7 +258,79 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
     });
   }
 
-  Future<void> _finishSession() async {
+  Future<void> _confirmFinishSession() async {
+    int rating = 0;
+    String note = '';
+    final noteController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Training abschließen'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Wie war das Training?', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (index) {
+                      return IconButton(
+                        icon: Icon(
+                          index < rating ? Icons.star : Icons.star_border,
+                          color: Colors.amber,
+                          size: 32,
+                        ),
+                        onPressed: () {
+                          setDialogState(() {
+                            rating = index + 1;
+                          });
+                        },
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: noteController,
+                    decoration: const InputDecoration(
+                      labelText: 'Notiz',
+                      border: OutlineInputBorder(),
+                      hintText: 'Besonderheiten, Probleme...',
+                    ),
+                    maxLines: 3,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context), // Cancel
+                child: const Text('Abbrechen'),
+              ),
+              TextButton(
+                onPressed: () {
+                   note = noteController.text;
+                   Navigator.pop(context, true); // Confirm
+                },
+                child: const Text('Fertigstellen'),
+              ),
+            ],
+          );
+        },
+      ),
+    ).then((confirmed) {
+      if (confirmed == true) {
+        _finishSession(rating, note);
+      }
+    });
+  }
+
+  Future<void> _finishSession(int rating, String note) async {
     // Save logic
     setState(() => _isLoading = true);
 
@@ -246,6 +338,8 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
       final training = GymTraining(
         planId: widget.plan.id!,
         date: _sessionStartTime, // Or DateTime.now()? Usually start time or end time. Let's use start.
+        rating: rating > 0 ? rating : null,
+        note: note.isNotEmpty ? note : null,
       );
 
       final setsToSave = <GymSet>[];
@@ -289,7 +383,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.check),
-            onPressed: _finishSession,
+            onPressed: _confirmFinishSession,
           )
         ],
       ),
@@ -456,9 +550,16 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                       },
                       child: CircleAvatar(
                         radius: 12,
-                        backgroundColor: set.isWarmup ? Colors.orange : Colors.grey.shade300,
+                        backgroundColor: set.isWarmup
+                            ? Colors.orange
+                            : Theme.of(context).colorScheme.secondaryContainer,
                         child: Text('${set.setNumber}',
-                            style: const TextStyle(fontSize: 12, color: Colors.white)),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: set.isWarmup
+                                  ? Colors.white
+                                  : Theme.of(context).colorScheme.onSecondaryContainer,
+                            )),
                       ),
                     ),
                   ),
