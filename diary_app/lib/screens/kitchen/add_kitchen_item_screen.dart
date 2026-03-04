@@ -384,7 +384,7 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
                   Expanded(
                     flex: 1,
                     child: DropdownButtonFormField<String>(
-                      value: _selectedEinheit,
+                      initialValue: _selectedEinheit,
                       decoration: const InputDecoration(
                         labelText: 'Einheit',
                         border: OutlineInputBorder(),
