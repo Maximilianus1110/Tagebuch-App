@@ -4,6 +4,9 @@ import 'package:diary_app/models/kitchen/kitchen_item.dart';
 import 'package:diary_app/models/kitchen/kitchen_tag.dart';
 import 'package:diary_app/services/kitchen_service.dart';
 import 'package:diary_app/screens/kitchen/add_kitchen_item_screen.dart';
+import 'package:diary_app/screens/kitchen/kitchen_import_screen.dart';
+import 'package:diary_app/widgets/app_drawer.dart';
+import 'package:diary_app/screens/settings/settings_screen.dart';
 
 enum KitchenSortOption { basisProdukt, mhd, tags }
 
@@ -253,10 +256,42 @@ class _KitchenScreenState extends State<KitchenScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Küche - Vorrat'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(110),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      ),
+      endDrawer: AppDrawer(
+        title: 'Küche Menü',
+        children: [
+          ListTile(
+            leading: const Icon(Icons.file_upload),
+            title: const Text('JSON Import'),
+            onTap: () async {
+              Navigator.pop(context); // Close drawer
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const KitchenImportScreen()),
+              );
+              if (result == true) {
+                _loadItems();
+              }
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: const Text('Einstellungen'),
+            onTap: () {
+              Navigator.pop(context); // Close drawer
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
             child: Column(
               children: [
                 TextField(
@@ -325,173 +360,175 @@ class _KitchenScreenState extends State<KitchenScreen> {
               ],
             ),
           ),
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _allItems.isEmpty
-              ? const Center(child: Text('Keine Vorräte vorhanden. Füge etwas hinzu!'))
-              : filtered.isEmpty
-                  ? const Center(child: Text('Keine Ergebnisse für deine Suche.'))
-                  : ListView.builder(
-                      itemCount: sortedGroupKeys.length,
-                      itemBuilder: (context, groupIndex) {
-                        final groupKey = sortedGroupKeys[groupIndex];
-                        final secondaryGroups = groupedItems[groupKey]!;
-
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Show group header if not grouped by basis_produkt
-                            if (_sortOption != KitchenSortOption.basisProdukt)
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                                child: Text(
-                                  groupKey == 'Ohne MHD' || groupKey == 'Ohne Tags'
-                                      ? groupKey
-                                      : (_sortOption == KitchenSortOption.mhd
-                                          ? 'MHD: ${DateFormat("dd.MM.yyyy").format(DateTime.parse(groupKey))}'
-                                          : 'Tag: $groupKey'),
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Theme.of(context).colorScheme.primary,
-                                  ),
-                                ),
-                              ),
-
-                            ...secondaryGroups.entries.map((entry) {
-                              final secondaryKey = entry.key; // "basisProdukt|einheit"
-                              final itemsForSecondaryGroup = entry.value;
-
-                              final parts = secondaryKey.split('|');
-                              final basisProdukt = parts[0];
-                              final einheit = parts[1];
-
-                              // Sort individual items by expiration date inside this expansion tile
-                              itemsForSecondaryGroup.sort((a, b) {
-                                // If grouped by tags, and both have MHD, prioritize tags sorting logic but secondary is MHD
-                                // We always secondary sort by MHD inside the ExpansionTile
-                                if (a.haltbarBis == null && b.haltbarBis == null) {
-                                   // third-level sort by tags if possible, otherwise by name
-                                   return a.name.compareTo(b.name);
-                                }
-                                if (a.haltbarBis == null) return 1;
-                                if (b.haltbarBis == null) return -1;
-                                return a.haltbarBis!.compareTo(b.haltbarBis!);
-                              });
-
-                              final totalMenge = itemsForSecondaryGroup.fold(0.0, (sum, item) => sum + item.menge);
-
-                              String displayTotal = '';
-                              if (einheit == 'g' && totalMenge >= 1000) {
-                                displayTotal = '${_formatTotal(totalMenge / 1000)} kg';
-                              } else if (einheit == 'ml' && totalMenge >= 1000) {
-                                displayTotal = '${_formatTotal(totalMenge / 1000)} l';
-                              } else {
-                                displayTotal = '${_formatTotal(totalMenge)} $einheit';
-                              }
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _allItems.isEmpty
+                    ? const Center(child: Text('Keine Vorräte vorhanden. Füge etwas hinzu!'))
+                    : filtered.isEmpty
+                        ? const Center(child: Text('Keine Ergebnisse für deine Suche.'))
+                        : ListView.builder(
+                            itemCount: sortedGroupKeys.length,
+                            itemBuilder: (context, groupIndex) {
+                              final groupKey = sortedGroupKeys[groupIndex];
+                              final secondaryGroups = groupedItems[groupKey]!;
 
                               return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  ExpansionTile(
-                                    title: Row(
-                                      children: [
-                                        Container(
-                                          width: 4,
-                                          height: 24,
-                                          margin: const EdgeInsets.only(right: 8),
-                                          decoration: BoxDecoration(
-                                            color: _getMostCriticalColor(itemsForSecondaryGroup),
-                                            borderRadius: BorderRadius.circular(2),
-                                          ),
+                                  // Show group header if not grouped by basis_produkt
+                                  if (_sortOption != KitchenSortOption.basisProdukt)
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                                      child: Text(
+                                        groupKey == 'Ohne MHD' || groupKey == 'Ohne Tags'
+                                            ? groupKey
+                                            : (_sortOption == KitchenSortOption.mhd
+                                                ? 'MHD: ${DateFormat('dd.MM.yyyy').format(DateTime.parse(groupKey))}'
+                                                : 'Tag: $groupKey'),
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(context).colorScheme.primary,
                                         ),
-                                        Expanded(
-                                          child: Text(
-                                            basisProdukt,
-                                            style: const TextStyle(fontWeight: FontWeight.bold),
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
-                                    subtitle: Text('Gesamt: $displayTotal'),
-                                    children: itemsForSecondaryGroup.map<Widget>((item) {
-                                      // Get tags for display
-                                      final itemTags = item.id != null && _itemTags.containsKey(item.id!)
-                                          ? _itemTags[item.id!]!.map((t) => t.name).join(', ')
-                                          : '';
 
-                                      return ListTile(
-                                        onTap: () async {
-                                          final tags = item.id != null && _itemTags.containsKey(item.id!) ? _itemTags[item.id!]! : <KitchenTag>[];
-                                          final result = await Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (context) => AddKitchenItemScreen(
-                                                existingItem: item,
-                                                existingTags: tags,
+                                  ...secondaryGroups.entries.map((entry) {
+                                    final secondaryKey = entry.key; // "basisProdukt|einheit"
+                                    final itemsForSecondaryGroup = entry.value;
+
+                                    final parts = secondaryKey.split('|');
+                                    final basisProdukt = parts[0];
+                                    final einheit = parts[1];
+
+                                    // Sort individual items by expiration date inside this expansion tile
+                                    itemsForSecondaryGroup.sort((a, b) {
+                                      // If grouped by tags, and both have MHD, prioritize tags sorting logic but secondary is MHD
+                                      // We always secondary sort by MHD inside the ExpansionTile
+                                      if (a.haltbarBis == null && b.haltbarBis == null) {
+                                         // third-level sort by tags if possible, otherwise by name
+                                         return a.name.compareTo(b.name);
+                                      }
+                                      if (a.haltbarBis == null) return 1;
+                                      if (b.haltbarBis == null) return -1;
+                                      return a.haltbarBis!.compareTo(b.haltbarBis!);
+                                    });
+
+                                    final totalMenge = itemsForSecondaryGroup.fold(0.0, (sum, item) => sum + item.menge);
+
+                                    String displayTotal = '';
+                                    if (einheit == 'g' && totalMenge >= 1000) {
+                                      displayTotal = '${_formatTotal(totalMenge / 1000)} kg';
+                                    } else if (einheit == 'ml' && totalMenge >= 1000) {
+                                      displayTotal = '${_formatTotal(totalMenge / 1000)} l';
+                                    } else {
+                                      displayTotal = '${_formatTotal(totalMenge)} $einheit';
+                                    }
+
+                                    return Column(
+                                      children: [
+                                        ExpansionTile(
+                                          title: Row(
+                                            children: [
+                                              Container(
+                                                width: 4,
+                                                height: 24,
+                                                margin: const EdgeInsets.only(right: 8),
+                                                decoration: BoxDecoration(
+                                                  color: _getMostCriticalColor(itemsForSecondaryGroup),
+                                                  borderRadius: BorderRadius.circular(2),
+                                                ),
                                               ),
-                                            ),
-                                          );
-                                          if (result == true) {
-                                            _loadItems();
-                                          }
-                                        },
-                                        contentPadding: const EdgeInsets.only(left: 72, right: 16),
-                                        title: Text(item.name),
-                                        subtitle: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            if (item.marke != null && item.marke!.isNotEmpty)
-                                              Text('Marke: ${item.marke}'),
-                                            if (itemTags.isNotEmpty)
-                                              Text('Tags: $itemTags', style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 12)),
-                                            if (item.haltbarBis != null)
-                                              Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.calendar_today,
-                                                    size: 14,
-                                                    color: _getExpirationColor(item.haltbarBis),
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    'MHD: ${DateFormat('dd.MM.yyyy').format(item.haltbarBis!)}',
-                                                    style: TextStyle(
-                                                      color: _getExpirationColor(item.haltbarBis),
-                                                      fontWeight: FontWeight.w500,
+                                              Expanded(
+                                                child: Text(
+                                                  basisProdukt,
+                                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          subtitle: Text('Gesamt: $displayTotal'),
+                                          children: itemsForSecondaryGroup.map<Widget>((item) {
+                                            // Get tags for display
+                                            final itemTags = item.id != null && _itemTags.containsKey(item.id!)
+                                                ? _itemTags[item.id!]!.map((t) => t.name).join(', ')
+                                                : '';
+
+                                            return ListTile(
+                                              onTap: () async {
+                                                final tags = item.id != null && _itemTags.containsKey(item.id!) ? _itemTags[item.id!]! : <KitchenTag>[];
+                                                final result = await Navigator.of(context).push(
+                                                  MaterialPageRoute(
+                                                    builder: (context) => AddKitchenItemScreen(
+                                                      existingItem: item,
+                                                      existingTags: tags,
                                                     ),
+                                                  ),
+                                                );
+                                                if (result == true) {
+                                                  _loadItems();
+                                                }
+                                              },
+                                              contentPadding: const EdgeInsets.only(left: 72, right: 16),
+                                              title: Text(item.name),
+                                              subtitle: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  if (item.marke != null && item.marke!.isNotEmpty)
+                                                    Text('Marke: ${item.marke}'),
+                                                  if (itemTags.isNotEmpty)
+                                                    Text('Tags: $itemTags', style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 12)),
+                                                  if (item.haltbarBis != null)
+                                                    Row(
+                                                      children: [
+                                                        Icon(
+                                                          Icons.calendar_today,
+                                                          size: 14,
+                                                          color: _getExpirationColor(item.haltbarBis),
+                                                        ),
+                                                        const SizedBox(width: 4),
+                                                        Text(
+                                                          'MHD: ${DateFormat('dd.MM.yyyy').format(item.haltbarBis!)}',
+                                                          style: TextStyle(
+                                                            color: _getExpirationColor(item.haltbarBis),
+                                                            fontWeight: FontWeight.w500,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                ],
+                                              ),
+                                              trailing: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    '${_formatTotal(item.menge)} ${item.einheit}',
+                                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  IconButton(
+                                                    icon: const Icon(Icons.restaurant),
+                                                    onPressed: () => _showConsumeDialog(item),
+                                                    tooltip: 'Verbrauchen',
+                                                    color: Theme.of(context).colorScheme.primary,
                                                   ),
                                                 ],
                                               ),
-                                          ],
+                                            );
+                                          }).toList(),
                                         ),
-                                        trailing: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              '${_formatTotal(item.menge)} ${item.einheit}',
-                                              style: const TextStyle(fontWeight: FontWeight.bold),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            IconButton(
-                                              icon: const Icon(Icons.restaurant),
-                                              onPressed: () => _showConsumeDialog(item),
-                                              tooltip: 'Verbrauchen',
-                                              color: Theme.of(context).colorScheme.primary,
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    }).toList(),
-                                  ),
-                                  const Divider(height: 1),
+                                        const Divider(height: 1),
+                                      ],
+                                    );
+                                  }),
                                 ],
                               );
-                            }),
-                          ],
-                        );
-                      },
-                    ),
+                            },
+                          ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final result = await Navigator.of(context).push(

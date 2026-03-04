@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:diary_app/db/database_helper.dart';
 import 'package:diary_app/models/kitchen/kitchen_item.dart';
 import 'package:diary_app/models/kitchen/kitchen_tag.dart';
@@ -164,6 +165,107 @@ class KitchenService {
     final db = await _dbHelper.database;
     final result = await db.query(KitchenTagFields.tableName, orderBy: '${KitchenTagFields.name} ASC');
     return result.map((json) => KitchenTag.fromJson(json)).toList();
+  }
+
+  Future<int> importFromJson(String jsonString) async {
+    final List<dynamic> jsonList;
+    try {
+      jsonList = jsonDecode(jsonString) as List<dynamic>;
+    } catch (e) {
+      throw const FormatException('Ungültiges JSON Format.');
+    }
+
+    int importedCount = 0;
+    final now = DateTime.now();
+    final allowedUnits = ['g', 'kg', 'ml', 'l', 'Stück'];
+
+    for (var itemMap in jsonList) {
+      if (itemMap is! Map<String, dynamic>) continue;
+
+      // Validate required fields
+      final name = itemMap['name']?.toString().trim();
+      final basisProdukt = itemMap['basis_produkt']?.toString().trim();
+      final mengeRaw = itemMap['menge'];
+      final einheitRaw = itemMap['einheit']?.toString().trim();
+
+      if (name == null || name.isEmpty ||
+          basisProdukt == null || basisProdukt.isEmpty ||
+          mengeRaw == null ||
+          einheitRaw == null || einheitRaw.isEmpty) {
+        throw const FormatException('Fehlende Pflichtfelder (name, basis_produkt, menge, einheit).');
+      }
+
+      double menge = 0;
+      if (mengeRaw is num) {
+        menge = mengeRaw.toDouble();
+      } else if (mengeRaw is String) {
+        menge = double.tryParse(mengeRaw.replaceAll(',', '.')) ?? 0;
+      }
+      if (menge <= 0) {
+        throw FormatException('Ungültige Menge für Produkt: $name');
+      }
+
+      String einheit = einheitRaw;
+      if (!allowedUnits.contains(einheit)) {
+        throw FormatException('Ungültige Einheit ($einheit) für Produkt: $name');
+      }
+
+      // Convert units
+      if (einheit == 'kg') {
+        menge *= 1000;
+        einheit = 'g';
+      } else if (einheit == 'l') {
+        menge *= 1000;
+        einheit = 'ml';
+      }
+
+      final marke = itemMap['marke']?.toString().trim();
+
+      // Handle expiration
+      DateTime? haltbarBis;
+      final haltbarBisStr = itemMap['haltbar_bis']?.toString();
+      final haltbarTage = itemMap['haltbar_tage'];
+
+      if (haltbarBisStr != null && haltbarBisStr.isNotEmpty) {
+        try {
+          haltbarBis = DateTime.parse(haltbarBisStr);
+        } catch (e) {
+          throw FormatException('Ungültiges Datumsformat bei haltbar_bis für Produkt: $name');
+        }
+      } else if (haltbarTage is num) {
+        haltbarBis = now.add(Duration(days: haltbarTage.toInt()));
+      } else if (haltbarTage is String) {
+         final days = int.tryParse(haltbarTage);
+         if (days != null) {
+           haltbarBis = now.add(Duration(days: days));
+         }
+      }
+
+      if (haltbarBis == null) {
+         throw FormatException('Entweder haltbar_bis oder haltbar_tage muss angegeben werden für Produkt: $name');
+      }
+
+      // Handle tags
+      List<String> tags = [];
+      if (itemMap['tags'] is List) {
+        tags = (itemMap['tags'] as List).map((t) => t.toString().trim()).where((t) => t.isNotEmpty).toList();
+      }
+
+      final newItem = KitchenItem(
+        name: name,
+        basisProdukt: basisProdukt,
+        marke: marke?.isNotEmpty == true ? marke : null,
+        menge: menge,
+        einheit: einheit,
+        haltbarBis: haltbarBis,
+        hinzugefuegt: now,
+      );
+
+      await createItem(newItem, tags);
+      importedCount++;
+    }
+
+    return importedCount;
   }
 
   // Get distinct item names and their details for autocomplete
