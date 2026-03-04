@@ -14,44 +14,108 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
   final _formKey = GlobalKey<FormState>();
   final KitchenService _kitchenService = KitchenService();
 
-  final _nameController = TextEditingController();
   final _basisProduktController = TextEditingController();
   final _markeController = TextEditingController();
   final _mengeController = TextEditingController();
   final _tagsController = TextEditingController();
+  final _dateController = TextEditingController();
+
+  String _name = '';
 
   String _selectedEinheit = 'g';
   final List<String> _einheiten = ['g', 'kg', 'ml', 'l', 'Stück'];
   DateTime? _selectedDate;
 
   bool _isSaving = false;
+  List<Map<String, dynamic>> _autocompleteOptions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAutocompleteOptions();
+  }
+
+  Future<void> _loadAutocompleteOptions() async {
+    final options = await _kitchenService.getDistinctItemsForAutocomplete();
+    if (mounted) {
+      setState(() {
+        _autocompleteOptions = options;
+      });
+    }
+  }
 
   @override
   void dispose() {
-    _nameController.dispose();
     _basisProduktController.dispose();
     _markeController.dispose();
     _mengeController.dispose();
     _tagsController.dispose();
+    _dateController.dispose();
     super.dispose();
   }
 
   void _presentDatePicker() {
     showDatePicker(
       context: context,
-      initialDate: DateTime.now().add(const Duration(days: 7)),
+      initialDate: _selectedDate ?? DateTime.now().add(const Duration(days: 7)),
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     ).then((pickedDate) {
       if (pickedDate == null) return;
       setState(() {
         _selectedDate = pickedDate;
+        _dateController.text = DateFormat('dd.MM.yyyy').format(pickedDate);
       });
+    });
+  }
+
+  void _onDateTextChanged(String value) {
+    if (value.length == 10) {
+      try {
+        final parsed = DateFormat('dd.MM.yyyy').parseStrict(value);
+        setState(() {
+          _selectedDate = parsed;
+        });
+      } catch (e) {
+        // invalid date format
+      }
+    } else {
+       setState(() {
+        _selectedDate = null;
+      });
+    }
+  }
+
+  void _onAutocompleteSelected(Map<String, dynamic> selection) {
+    setState(() {
+      _name = selection['name'] as String;
+      _basisProduktController.text = selection['basisProdukt'] as String;
+
+      if (selection['marke'] != null) {
+        _markeController.text = selection['marke'] as String;
+      }
+
+      final einheit = selection['einheit'] as String;
+      if (_einheiten.contains(einheit)) {
+        _selectedEinheit = einheit;
+      }
+
+      if (selection['tags'] != null && selection['tags'].toString().isNotEmpty) {
+        _tagsController.text = selection['tags'] as String;
+      }
     });
   }
 
   Future<void> _saveItem() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // Additional validation for autocomplete since it's not a normal controller
+    if (_name.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bitte einen Produktnamen eingeben.')),
+      );
+      return;
+    }
 
     setState(() => _isSaving = true);
 
@@ -70,7 +134,7 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
       }
 
       final newItem = KitchenItem(
-        name: _nameController.text.trim(),
+        name: _name.trim(),
         basisProdukt: _basisProduktController.text.trim(),
         marke: _markeController.text.trim().isEmpty ? null : _markeController.text.trim(),
         menge: menge,
@@ -92,7 +156,7 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
       Navigator.of(context).pop(true);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Fehler beim Speichern: \$e')),
+        SnackBar(content: Text('Fehler beim Speichern: $e')),
       );
       setState(() => _isSaving = false);
     }
@@ -127,17 +191,39 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Produktname (z.B. Barilla Spaghetti No. 5)',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Bitte einen Namen eingeben.';
+              Autocomplete<Map<String, dynamic>>(
+                optionsBuilder: (TextEditingValue textEditingValue) {
+                  if (textEditingValue.text.isEmpty) {
+                    return const Iterable<Map<String, dynamic>>.empty();
                   }
-                  return null;
+                  return _autocompleteOptions.where((option) {
+                    return option['name']
+                        .toString()
+                        .toLowerCase()
+                        .contains(textEditingValue.text.toLowerCase());
+                  });
+                },
+                displayStringForOption: (option) => option['name'] as String,
+                onSelected: _onAutocompleteSelected,
+                fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                  // Keep _name synced if user types freely without selecting
+                  controller.addListener(() {
+                    _name = controller.text;
+                  });
+                  return TextFormField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: const InputDecoration(
+                      labelText: 'Produktname (z.B. Barilla Spaghetti No. 5)',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Bitte einen Namen eingeben.';
+                      }
+                      return null;
+                    },
+                  );
                 },
               ),
               const SizedBox(height: 16),
@@ -191,7 +277,7 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
                   Expanded(
                     flex: 1,
                     child: DropdownButtonFormField<String>(
-                      initialValue: _selectedEinheit,
+                      value: _selectedEinheit,
                       decoration: const InputDecoration(
                         labelText: 'Einheit',
                         border: OutlineInputBorder(),
@@ -214,21 +300,28 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _selectedDate == null
-                          ? 'Kein Ablaufdatum ausgewählt!'
-                          : 'Haltbar bis: \${DateFormat("dd.MM.yyyy").format(_selectedDate!)}',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  TextButton(
+              TextFormField(
+                controller: _dateController,
+                keyboardType: TextInputType.datetime,
+                decoration: InputDecoration(
+                  labelText: 'Haltbar bis (TT.MM.JJJJ)',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.calendar_today),
                     onPressed: _presentDatePicker,
-                    child: const Text('Datum wählen'),
                   ),
-                ],
+                ),
+                onChanged: _onDateTextChanged,
+                validator: (value) {
+                   if (value != null && value.isNotEmpty) {
+                     try {
+                        DateFormat('dd.MM.yyyy').parseStrict(value);
+                     } catch(e) {
+                        return 'Ungültiges Datum. Format: TT.MM.JJJJ';
+                     }
+                   }
+                   return null;
+                },
               ),
               const SizedBox(height: 16),
               TextFormField(

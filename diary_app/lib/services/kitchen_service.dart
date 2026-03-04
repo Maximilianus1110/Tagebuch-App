@@ -112,4 +112,35 @@ class KitchenService {
     final result = await db.query(KitchenTagFields.tableName, orderBy: '${KitchenTagFields.name} ASC');
     return result.map((json) => KitchenTag.fromJson(json)).toList();
   }
+
+  // Get distinct item names and their details for autocomplete
+  Future<List<Map<String, dynamic>>> getDistinctItemsForAutocomplete() async {
+    final db = await _dbHelper.database;
+    final result = await db.rawQuery('''
+      SELECT MAX(${KitchenItemFields.id}) as id,
+             ${KitchenItemFields.name},
+             ${KitchenItemFields.basisProdukt},
+             ${KitchenItemFields.marke},
+             ${KitchenItemFields.einheit}
+      FROM ${KitchenItemFields.tableName}
+      GROUP BY ${KitchenItemFields.name}
+    ''');
+
+    List<Map<String, dynamic>> itemsWithTags = [];
+    for (var row in result) {
+      final itemId = row['id'] as int;
+      final tags = await getTagsForItem(itemId);
+      final tagNames = tags.map((t) => t.name).join(', ');
+
+      itemsWithTags.add({
+        'name': row[KitchenItemFields.name],
+        'basisProdukt': row[KitchenItemFields.basisProdukt],
+        'marke': row[KitchenItemFields.marke],
+        'einheit': row[KitchenItemFields.einheit],
+        'tags': tagNames,
+      });
+    }
+
+    return itemsWithTags;
+  }
 }
