@@ -110,7 +110,7 @@ class _KitchenScreenState extends State<KitchenScreen> {
       }
 
       // Secondary grouping: always group identical products together so we can sum their amounts
-      final secondaryKey = '\${item.basisProdukt}|\${item.einheit}';
+      final secondaryKey = '${item.basisProdukt}|${item.einheit}';
 
       if (!grouped[groupKey]!.containsKey(secondaryKey)) {
         grouped[groupKey]![secondaryKey] = [];
@@ -127,17 +127,17 @@ class _KitchenScreenState extends State<KitchenScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Verbrauchen: \${item.name}'),
+          title: Text('Verbrauchen: ${item.name}'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Aktuelle Menge: \${_formatTotal(item.menge)} \${item.einheit}'),
+              Text('Aktuelle Menge: ${_formatTotal(item.menge)} ${item.einheit}'),
               const SizedBox(height: 16),
               TextField(
                 controller: amountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
-                  labelText: 'Verbrauchte Menge (\${item.einheit})',
+                  labelText: 'Verbrauchte Menge (${item.einheit})',
                   border: const OutlineInputBorder(),
                 ),
               ),
@@ -303,8 +303,8 @@ class _KitchenScreenState extends State<KitchenScreen> {
                                   groupKey == 'Ohne MHD' || groupKey == 'Ohne Tags'
                                       ? groupKey
                                       : (_sortOption == KitchenSortOption.mhd
-                                          ? 'MHD: \${DateFormat("dd.MM.yyyy").format(DateTime.parse(groupKey))}'
-                                          : 'Tag: \$groupKey'),
+                                          ? 'MHD: ${DateFormat("dd.MM.yyyy").format(DateTime.parse(groupKey))}'
+                                          : 'Tag: $groupKey'),
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -338,11 +338,11 @@ class _KitchenScreenState extends State<KitchenScreen> {
 
                               String displayTotal = '';
                               if (einheit == 'g' && totalMenge >= 1000) {
-                                displayTotal = '\${_formatTotal(totalMenge / 1000)} kg';
+                                displayTotal = '${_formatTotal(totalMenge / 1000)} kg';
                               } else if (einheit == 'ml' && totalMenge >= 1000) {
-                                displayTotal = '\${_formatTotal(totalMenge / 1000)} l';
+                                displayTotal = '${_formatTotal(totalMenge / 1000)} l';
                               } else {
-                                displayTotal = '\${_formatTotal(totalMenge)} $einheit';
+                                displayTotal = '${_formatTotal(totalMenge)} $einheit';
                               }
 
                               return Column(
@@ -370,9 +370,9 @@ class _KitchenScreenState extends State<KitchenScreen> {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             if (item.marke != null && item.marke!.isNotEmpty)
-                                              Text('Marke: \${item.marke}'),
+                                              Text('Marke: ${item.marke}'),
                                             if (itemTags.isNotEmpty)
-                                              Text('Tags: \$itemTags', style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 12)),
+                                              Text('Tags: $itemTags', style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 12)),
                                             if (item.haltbarBis != null)
                                               Row(
                                                 children: [
@@ -383,7 +383,7 @@ class _KitchenScreenState extends State<KitchenScreen> {
                                                   ),
                                                   const SizedBox(width: 4),
                                                   Text(
-                                                    'MHD: \${_formatDate(item.haltbarBis!)}',
+                                                    'MHD: ${DateFormat('dd.MM.yyyy').format(item.haltbarBis!)}',
                                                     style: TextStyle(
                                                       color: _getExpirationColor(item.haltbarBis),
                                                       fontWeight: FontWeight.w500,
@@ -397,7 +397,7 @@ class _KitchenScreenState extends State<KitchenScreen> {
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Text(
-                                              '\${_formatTotal(item.menge)} \${item.einheit}',
+                                              '${_formatTotal(item.menge)} ${item.einheit}',
                                               style: const TextStyle(fontWeight: FontWeight.bold),
                                             ),
                                             const SizedBox(width: 8),

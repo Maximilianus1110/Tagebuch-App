@@ -196,11 +196,13 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
                   if (textEditingValue.text.isEmpty) {
                     return const Iterable<Map<String, dynamic>>.empty();
                   }
+                  final query = textEditingValue.text.toLowerCase();
                   return _autocompleteOptions.where((option) {
-                    return option['name']
-                        .toString()
-                        .toLowerCase()
-                        .contains(textEditingValue.text.toLowerCase());
+                    final name = option['name']?.toString().toLowerCase() ?? '';
+                    final basis = option['basisProdukt']?.toString().toLowerCase() ?? '';
+                    final marke = option['marke']?.toString().toLowerCase() ?? '';
+                    final tags = option['tags']?.toString().toLowerCase() ?? '';
+                    return name.contains(query) || basis.contains(query) || marke.contains(query) || tags.contains(query);
                   });
                 },
                 displayStringForOption: (option) => option['name'] as String,
@@ -227,27 +229,84 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _basisProduktController,
-                decoration: const InputDecoration(
-                  labelText: 'Basis-Produkt (z.B. Spaghetti, Milch)',
-                  border: OutlineInputBorder(),
-                  helperText: 'Dient der Gruppierung in der Übersicht.',
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Bitte ein Basis-Produkt eingeben.';
+              Autocomplete<String>(
+                optionsBuilder: (TextEditingValue textEditingValue) {
+                  if (textEditingValue.text.isEmpty) {
+                    return const Iterable<String>.empty();
                   }
-                  return null;
+                  // Get distinct Basis-Produkte
+                  final basisProdukts = _autocompleteOptions
+                      .map((o) => o['basisProdukt']?.toString() ?? '')
+                      .where((s) => s.isNotEmpty)
+                      .toSet()
+                      .toList();
+                  return basisProdukts.where((s) => s.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+                },
+                onSelected: (String selection) {
+                  _basisProduktController.text = selection;
+                },
+                fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                  // Bind the controller to our state controller or listen to it
+                  // Actually, to make it work seamlessly and keep our validation:
+                  controller.addListener(() {
+                     // We just use our own controller if we sync, or we use their controller and validate it.
+                     // The best way is to set _basisProduktController text when this changes
+                     _basisProduktController.text = controller.text;
+                  });
+                  // If we already had text from autocomplete or edits:
+                  if (_basisProduktController.text.isNotEmpty && controller.text.isEmpty) {
+                      controller.text = _basisProduktController.text;
+                  }
+                  return TextFormField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: const InputDecoration(
+                      labelText: 'Basis-Produkt (z.B. Spaghetti, Milch)',
+                      border: OutlineInputBorder(),
+                      helperText: 'Dient der Gruppierung in der Übersicht.',
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Bitte ein Basis-Produkt eingeben.';
+                      }
+                      return null;
+                    },
+                  );
                 },
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _markeController,
-                decoration: const InputDecoration(
-                  labelText: 'Marke (optional, z.B. Barilla)',
-                  border: OutlineInputBorder(),
-                ),
+              Autocomplete<String>(
+                optionsBuilder: (TextEditingValue textEditingValue) {
+                  if (textEditingValue.text.isEmpty) {
+                    return const Iterable<String>.empty();
+                  }
+                  // Get distinct marken
+                  final marken = _autocompleteOptions
+                      .map((o) => o['marke']?.toString() ?? '')
+                      .where((s) => s.isNotEmpty)
+                      .toSet()
+                      .toList();
+                  return marken.where((s) => s.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+                },
+                onSelected: (String selection) {
+                  _markeController.text = selection;
+                },
+                fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                  controller.addListener(() {
+                     _markeController.text = controller.text;
+                  });
+                  if (_markeController.text.isNotEmpty && controller.text.isEmpty) {
+                      controller.text = _markeController.text;
+                  }
+                  return TextFormField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: const InputDecoration(
+                      labelText: 'Marke (optional, z.B. Barilla)',
+                      border: OutlineInputBorder(),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 16),
               Row(
