@@ -6,6 +6,7 @@ import 'package:diary_app/screens/add_entry_screen.dart';
 import 'package:diary_app/services/export_service.dart';
 import 'package:diary_app/screens/trash_screen.dart';
 import 'package:diary_app/screens/gym_screen.dart';
+import 'package:diary_app/widgets/app_drawer.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
@@ -156,62 +157,39 @@ class _DiaryScreenState extends State<DiaryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mein Tagebuch'),
-        actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              switch (value) {
-                case 'export':
-                  ExportService.exportEntries();
-                  break;
-                case 'trash':
-                  Navigator.of(context)
-                      .push(
-                    MaterialPageRoute(
-                        builder: (context) => const TrashScreen()),
-                  )
-                      .then((_) => _refreshEntries());
-                  break;
-                case 'gym':
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (context) => const GymScreen()),
-                  );
-                  break;
-              }
+      ),
+      endDrawer: AppDrawer(
+        title: 'Tagebuch Menü',
+        children: [
+          ListTile(
+            leading: const Icon(Icons.share),
+            title: const Text('Tagebuch exportieren'),
+            onTap: () {
+              Navigator.pop(context);
+              ExportService.exportEntries();
             },
-            itemBuilder: (BuildContext context) {
-              return [
-                const PopupMenuItem<String>(
-                  value: 'export',
-                  child: Row(
-                    children: [
-                      Icon(Icons.share, color: Colors.black54),
-                      SizedBox(width: 8),
-                      Text('Tagebuch exportieren'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'trash',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, color: Colors.black54),
-                      SizedBox(width: 8),
-                      Text('Papierkorb'),
-                    ],
-                  ),
-                ),
-                const PopupMenuDivider(),
-                const PopupMenuItem<String>(
-                  value: 'gym',
-                  child: Row(
-                    children: [
-                      Icon(Icons.fitness_center, color: Colors.black54),
-                      SizedBox(width: 8),
-                      Text('Modus wechseln'),
-                    ],
-                  ),
-                ),
-              ];
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete),
+            title: const Text('Papierkorb'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.of(context)
+                  .push(
+                    MaterialPageRoute(builder: (context) => const TrashScreen()),
+                  )
+                  .then((_) => _refreshEntries());
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.fitness_center),
+            title: const Text('Modus wechseln'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const GymScreen()),
+              );
             },
           ),
         ],

@@ -1,5 +1,5 @@
 import 'package:diary_app/models/diary_entry.dart';
-import 'package:diary_app/models/gym/gym_equipment.dart';
+import 'package:diary_app/models/gym/gym_exercise.dart';
 import 'package:diary_app/models/gym/gym_plan.dart';
 import 'package:diary_app/models/gym/gym_training.dart';
 import 'package:flutter/foundation.dart';
@@ -38,7 +38,7 @@ class DatabaseHelper {
 
     final db = await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -81,6 +81,42 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
     if (oldVersion < 4) {
       await _createGymTables(db);
     }
+    if (oldVersion < 5) {
+      // Version 5: Add description to exercises, targetReps/isWarmup to plan exercises, duration/isWarmup to sets
+      try {
+        await db.execute('ALTER TABLE ${GymExerciseFields.tableName} ADD COLUMN ${GymExerciseFields.description} TEXT');
+      } catch (e) {
+        // Ignore if exists
+      }
+      try {
+        await db.execute('ALTER TABLE ${GymPlanExerciseFields.tableName} ADD COLUMN ${GymPlanExerciseFields.targetReps} TEXT');
+      } catch (e) {
+        // Ignore
+      }
+      try {
+        await db.execute('ALTER TABLE ${GymPlanExerciseFields.tableName} ADD COLUMN ${GymPlanExerciseFields.isWarmup} INTEGER DEFAULT 0');
+      } catch (e) {
+        // Ignore
+      }
+      try {
+        await db.execute('ALTER TABLE ${GymSetFields.tableName} ADD COLUMN ${GymSetFields.durationSeconds} INTEGER');
+      } catch (e) {
+        // Ignore
+      }
+      try {
+        await db.execute('ALTER TABLE ${GymSetFields.tableName} ADD COLUMN ${GymSetFields.isWarmup} INTEGER DEFAULT 0');
+      } catch (e) {
+        // Ignore
+      }
+    }
+    if (oldVersion < 6) {
+      // Version 6: Add duration to trainings
+      try {
+        await db.execute('ALTER TABLE ${GymTrainingFields.tableName} ADD COLUMN ${GymTrainingFields.durationSeconds} INTEGER');
+      } catch (e) {
+        // Ignore
+      }
+    }
   }
 
   Future _createGymTables(Database db) async {
@@ -92,11 +128,12 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
     const textNullable = 'TEXT';
     const intNullable = 'INTEGER';
 
-    // Gym Equipment
+    // Gym Exercises (formerly Equipment)
     await db.execute('''
-CREATE TABLE IF NOT EXISTS ${GymEquipmentFields.tableName} (
-  ${GymEquipmentFields.id} $idType,
-  ${GymEquipmentFields.name} $textType
+CREATE TABLE IF NOT EXISTS ${GymExerciseFields.tableName} (
+  ${GymExerciseFields.id} $idType,
+  ${GymExerciseFields.name} $textType,
+  ${GymExerciseFields.description} $textNullable
 )
 ''');
 
@@ -113,11 +150,13 @@ CREATE TABLE IF NOT EXISTS ${GymPlanFields.tableName} (
 CREATE TABLE IF NOT EXISTS ${GymPlanExerciseFields.tableName} (
   ${GymPlanExerciseFields.id} $idType,
   ${GymPlanExerciseFields.planId} $intType,
-  ${GymPlanExerciseFields.equipmentId} $intType,
+  ${GymPlanExerciseFields.exerciseId} $intType,
   ${GymPlanExerciseFields.setCount} $intType,
   ${GymPlanExerciseFields.sortOrder} $intType,
+  ${GymPlanExerciseFields.targetReps} $textNullable,
+  ${GymPlanExerciseFields.isWarmup} $boolType,
   FOREIGN KEY (${GymPlanExerciseFields.planId}) REFERENCES ${GymPlanFields.tableName} (${GymPlanFields.id}) ON DELETE CASCADE,
-  FOREIGN KEY (${GymPlanExerciseFields.equipmentId}) REFERENCES ${GymEquipmentFields.tableName} (${GymEquipmentFields.id})
+  FOREIGN KEY (${GymPlanExerciseFields.exerciseId}) REFERENCES ${GymExerciseFields.tableName} (${GymExerciseFields.id})
 )
 ''');
 
@@ -128,6 +167,7 @@ CREATE TABLE IF NOT EXISTS ${GymTrainingFields.tableName} (
   ${GymTrainingFields.planId} $intType,
   ${GymTrainingFields.date} $textType,
   ${GymTrainingFields.note} $textNullable,
+  ${GymTrainingFields.durationSeconds} $intNullable,
   FOREIGN KEY (${GymTrainingFields.planId}) REFERENCES ${GymPlanFields.tableName} (${GymPlanFields.id})
 )
 ''');
@@ -137,13 +177,15 @@ CREATE TABLE IF NOT EXISTS ${GymTrainingFields.tableName} (
 CREATE TABLE IF NOT EXISTS ${GymSetFields.tableName} (
   ${GymSetFields.id} $idType,
   ${GymSetFields.trainingId} $intType,
-  ${GymSetFields.equipmentId} $intType,
+  ${GymSetFields.exerciseId} $intType,
   ${GymSetFields.setNumber} $intType,
   ${GymSetFields.reps} $intNullable,
   ${GymSetFields.weight} $realType,
   ${GymSetFields.isDone} $boolType,
+  ${GymSetFields.durationSeconds} $intNullable,
+  ${GymSetFields.isWarmup} $boolType,
   FOREIGN KEY (${GymSetFields.trainingId}) REFERENCES ${GymTrainingFields.tableName} (${GymTrainingFields.id}) ON DELETE CASCADE,
-  FOREIGN KEY (${GymSetFields.equipmentId}) REFERENCES ${GymEquipmentFields.tableName} (${GymEquipmentFields.id})
+  FOREIGN KEY (${GymSetFields.exerciseId}) REFERENCES ${GymExerciseFields.tableName} (${GymExerciseFields.id})
 )
 ''');
   }
@@ -251,17 +293,27 @@ CREATE TABLE IF NOT EXISTS ${GymSetFields.tableName} (
 
   // --- Gym CRUD Methods ---
 
-  // Equipment
-  Future<GymEquipment> createEquipment(GymEquipment equipment) async {
+  // Exercises
+  Future<GymExercise> createExercise(GymExercise exercise) async {
     final db = await instance.database;
-    final id = await db.insert(GymEquipmentFields.tableName, equipment.toJson());
-    return equipment.copyWith(id: id);
+    final id = await db.insert(GymExerciseFields.tableName, exercise.toJson());
+    return exercise.copyWith(id: id);
   }
 
-  Future<List<GymEquipment>> getAllEquipment() async {
+  Future<int> updateExercise(GymExercise exercise) async {
     final db = await instance.database;
-    final result = await db.query(GymEquipmentFields.tableName, orderBy: '${GymEquipmentFields.name} ASC');
-    return result.map((json) => GymEquipment.fromJson(json)).toList();
+    return await db.update(
+      GymExerciseFields.tableName,
+      exercise.toJson(),
+      where: '${GymExerciseFields.id} = ?',
+      whereArgs: [exercise.id],
+    );
+  }
+
+  Future<List<GymExercise>> getAllExercises() async {
+    final db = await instance.database;
+    final result = await db.query(GymExerciseFields.tableName, orderBy: '${GymExerciseFields.name} ASC');
+    return result.map((json) => GymExercise.fromJson(json)).toList();
   }
 
   // Plans
@@ -328,24 +380,55 @@ CREATE TABLE IF NOT EXISTS ${GymSetFields.tableName} (
       GymSetFields.tableName,
       where: '${GymSetFields.trainingId} = ?',
       whereArgs: [trainingId],
-      orderBy: '${GymSetFields.equipmentId}, ${GymSetFields.setNumber}',
+      orderBy: '${GymSetFields.exerciseId}, ${GymSetFields.setNumber}',
     );
     return result.map((json) => GymSet.fromJson(json)).toList();
   }
 
   // Helper to get last training for a plan to pre-fill values
-  Future<GymTraining?> getLastTraining(int planId) async {
+  Future<GymTraining?> getLastTraining(int planId, {DateTime? beforeDate}) async {
     final db = await instance.database;
+
+    String where = '${GymTrainingFields.planId} = ?';
+    List<Object?> args = [planId];
+
+    if (beforeDate != null) {
+      where += ' AND ${GymTrainingFields.date} < ?';
+      args.add(beforeDate.toIso8601String());
+    }
+
     final result = await db.query(
       GymTrainingFields.tableName,
-      where: '${GymTrainingFields.planId} = ?',
-      whereArgs: [planId],
+      where: where,
+      whereArgs: args,
       orderBy: '${GymTrainingFields.date} DESC',
       limit: 1,
     );
 
     if (result.isNotEmpty) {
       return GymTraining.fromJson(result.first);
+    }
+    return null;
+  }
+
+  // Get the latest set for a specific exercise (globally) to pre-fill values
+  Future<GymSet?> getLatestSetForExercise(int exerciseId) async {
+    final db = await instance.database;
+    // Join trainings to order by date? Or rely on ID order if chronological?
+    // Let's rely on ID order or join. For simplicity, ID order usually matches time if autoincrement.
+    // Better to join training and order by date.
+
+    final result = await db.rawQuery('''
+      SELECT s.*
+      FROM ${GymSetFields.tableName} s
+      INNER JOIN ${GymTrainingFields.tableName} t ON s.${GymSetFields.trainingId} = t.${GymTrainingFields.id}
+      WHERE s.${GymSetFields.exerciseId} = ?
+      ORDER BY t.${GymTrainingFields.date} DESC, s.${GymSetFields.setNumber} DESC
+      LIMIT 1
+    ''', [exerciseId]);
+
+    if (result.isNotEmpty) {
+      return GymSet.fromJson(result.first);
     }
     return null;
   }

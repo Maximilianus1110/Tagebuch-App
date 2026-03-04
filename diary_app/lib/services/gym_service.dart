@@ -1,5 +1,5 @@
 import 'package:diary_app/db/database_helper.dart';
-import 'package:diary_app/models/gym/gym_equipment.dart';
+import 'package:diary_app/models/gym/gym_exercise.dart';
 import 'package:diary_app/models/gym/gym_plan.dart';
 import 'package:diary_app/models/gym/gym_training.dart';
 
@@ -20,14 +20,18 @@ class TrainingHistoryItem {
 class GymService {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
 
-  // --- Equipment ---
-  Future<List<GymEquipment>> getAllEquipment() async {
-    return await _dbHelper.getAllEquipment();
+  // --- Exercises ---
+  Future<List<GymExercise>> getAllExercises() async {
+    return await _dbHelper.getAllExercises();
   }
 
-  Future<GymEquipment> addEquipment(String name) async {
-    final equipment = GymEquipment(name: name);
-    return await _dbHelper.createEquipment(equipment);
+  Future<GymExercise> addExercise(String name, [String? description]) async {
+    final exercise = GymExercise(name: name, description: description);
+    return await _dbHelper.createExercise(exercise);
+  }
+
+  Future<int> updateExercise(GymExercise exercise) async {
+    return await _dbHelper.updateExercise(exercise);
   }
 
   // --- Plans ---
@@ -48,9 +52,13 @@ class GymService {
     return await _dbHelper.createTraining(training, sets);
   }
 
-  /// Returns a map of "${equipmentId}_${setNumber}" -> GymSet (last used values)
-  Future<Map<String, GymSet>> getLastTrainingSets(int planId) async {
-    final lastTraining = await _dbHelper.getLastTraining(planId);
+  Future<List<GymSet>> getSetsForTraining(int trainingId) async {
+    return await _dbHelper.getSetsForTraining(trainingId);
+  }
+
+  /// Returns a map of "${exerciseId}_${setNumber}" -> GymSet (last used values)
+  Future<Map<String, GymSet>> getLastTrainingSets(int planId, {DateTime? beforeDate}) async {
+    final lastTraining = await _dbHelper.getLastTraining(planId, beforeDate: beforeDate);
     if (lastTraining == null || lastTraining.id == null) {
       return {};
     }
@@ -59,9 +67,13 @@ class GymService {
 
     final Map<String, GymSet> resultMap = {};
     for (var s in sets) {
-      resultMap['${s.equipmentId}_${s.setNumber}'] = s;
+      resultMap['${s.exerciseId}_${s.setNumber}'] = s;
     }
     return resultMap;
+  }
+
+  Future<GymSet?> getLatestSetForExercise(int exerciseId) async {
+    return await _dbHelper.getLatestSetForExercise(exerciseId);
   }
 
   Future<List<TrainingHistoryItem>> getHistory() async {
