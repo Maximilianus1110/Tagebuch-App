@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:diary_app/db/database_helper.dart';
 import 'package:diary_app/models/kitchen/kitchen_item.dart';
 import 'package:diary_app/models/kitchen/kitchen_tag.dart';
@@ -50,6 +51,59 @@ class KitchenService {
       }
 
       return newItem;
+    });
+  }
+
+  Future<KitchenItem> updateItem(KitchenItem item, List<String> tagNames) async {
+    final db = await _dbHelper.database;
+    return await db.transaction((txn) async {
+      // 1. Update item
+      await txn.update(
+        KitchenItemFields.tableName,
+        item.toJson(),
+        where: '${KitchenItemFields.id} = ?',
+        whereArgs: [item.id],
+      );
+
+      // 2. Delete old tags relationships
+      await txn.delete(
+        KitchenItemTagFields.tableName,
+        where: '${KitchenItemTagFields.itemId} = ?',
+        whereArgs: [item.id],
+      );
+
+      // 3. Insert new tags and relationships
+      for (final tagName in tagNames) {
+        final tag = tagName.trim();
+        if (tag.isEmpty) continue;
+
+        final existingTags = await txn.query(
+          KitchenTagFields.tableName,
+          where: '${KitchenTagFields.name} = ?',
+          whereArgs: [tag],
+        );
+
+        int tagId;
+        if (existingTags.isNotEmpty) {
+          tagId = existingTags.first[KitchenTagFields.id] as int;
+        } else {
+          tagId = await txn.insert(
+            KitchenTagFields.tableName,
+            {KitchenTagFields.name: tag},
+          );
+        }
+
+        await txn.insert(
+          KitchenItemTagFields.tableName,
+          {
+            KitchenItemTagFields.itemId: item.id,
+            KitchenItemTagFields.tagId: tagId,
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+
+      return item;
     });
   }
 
@@ -111,5 +165,137 @@ class KitchenService {
     final db = await _dbHelper.database;
     final result = await db.query(KitchenTagFields.tableName, orderBy: '${KitchenTagFields.name} ASC');
     return result.map((json) => KitchenTag.fromJson(json)).toList();
+  }
+
+  Future<int> importFromJson(String jsonString) async {
+    final List<dynamic> jsonList;
+    try {
+      jsonList = jsonDecode(jsonString) as List<dynamic>;
+    } catch (e) {
+      throw const FormatException('Ungültiges JSON Format.');
+    }
+
+    int importedCount = 0;
+    final now = DateTime.now();
+    final allowedUnits = ['g', 'kg', 'ml', 'l', 'Stück'];
+
+    for (var itemMap in jsonList) {
+      if (itemMap is! Map<String, dynamic>) continue;
+
+      // Validate required fields
+      final name = itemMap['name']?.toString().trim();
+      final basisProdukt = itemMap['basis_produkt']?.toString().trim();
+      final mengeRaw = itemMap['menge'];
+      final einheitRaw = itemMap['einheit']?.toString().trim();
+
+      if (name == null || name.isEmpty ||
+          basisProdukt == null || basisProdukt.isEmpty ||
+          mengeRaw == null ||
+          einheitRaw == null || einheitRaw.isEmpty) {
+        throw const FormatException('Fehlende Pflichtfelder (name, basis_produkt, menge, einheit).');
+      }
+
+      double menge = 0;
+      if (mengeRaw is num) {
+        menge = mengeRaw.toDouble();
+      } else if (mengeRaw is String) {
+        menge = double.tryParse(mengeRaw.replaceAll(',', '.')) ?? 0;
+      }
+      if (menge <= 0) {
+        throw FormatException('Ungültige Menge für Produkt: $name');
+      }
+
+      String einheit = einheitRaw;
+      if (!allowedUnits.contains(einheit)) {
+        throw FormatException('Ungültige Einheit ($einheit) für Produkt: $name');
+      }
+
+      // Convert units
+      if (einheit == 'kg') {
+        menge *= 1000;
+        einheit = 'g';
+      } else if (einheit == 'l') {
+        menge *= 1000;
+        einheit = 'ml';
+      }
+
+      final marke = itemMap['marke']?.toString().trim();
+
+      // Handle expiration
+      DateTime? haltbarBis;
+      final haltbarBisStr = itemMap['haltbar_bis']?.toString();
+      final haltbarTage = itemMap['haltbar_tage'];
+
+      if (haltbarBisStr != null && haltbarBisStr.isNotEmpty) {
+        try {
+          haltbarBis = DateTime.parse(haltbarBisStr);
+        } catch (e) {
+          throw FormatException('Ungültiges Datumsformat bei haltbar_bis für Produkt: $name');
+        }
+      } else if (haltbarTage is num) {
+        haltbarBis = now.add(Duration(days: haltbarTage.toInt()));
+      } else if (haltbarTage is String) {
+         final days = int.tryParse(haltbarTage);
+         if (days != null) {
+           haltbarBis = now.add(Duration(days: days));
+         }
+      }
+
+      if (haltbarBis == null) {
+         throw FormatException('Entweder haltbar_bis oder haltbar_tage muss angegeben werden für Produkt: $name');
+      }
+
+      // Handle tags
+      List<String> tags = [];
+      if (itemMap['tags'] is List) {
+        tags = (itemMap['tags'] as List).map((t) => t.toString().trim()).where((t) => t.isNotEmpty).toList();
+      }
+
+      final newItem = KitchenItem(
+        name: name,
+        basisProdukt: basisProdukt,
+        marke: marke?.isNotEmpty == true ? marke : null,
+        menge: menge,
+        einheit: einheit,
+        haltbarBis: haltbarBis,
+        hinzugefuegt: now,
+      );
+
+      await createItem(newItem, tags);
+      importedCount++;
+    }
+
+    return importedCount;
+  }
+
+  // Get distinct item names and their details for autocomplete
+  Future<List<Map<String, dynamic>>> getDistinctItemsForAutocomplete() async {
+    final db = await _dbHelper.database;
+    final result = await db.rawQuery('''
+      SELECT MAX(${KitchenItemFields.id}) as id,
+             ${KitchenItemFields.name},
+             ${KitchenItemFields.basisProdukt},
+             ${KitchenItemFields.marke},
+             ${KitchenItemFields.einheit}
+      FROM ${KitchenItemFields.tableName}
+      GROUP BY ${KitchenItemFields.name}
+    ''');
+
+    List<Map<String, dynamic>> itemsWithTags = [];
+    for (var row in result) {
+      final itemId = row['id'] as int;
+      final tags = await getTagsForItem(itemId);
+      final tagNames = tags.map((t) => t.name).join(', ');
+
+      itemsWithTags.add({
+        'name': row[KitchenItemFields.name],
+        'basisProdukt': row[KitchenItemFields.basisProdukt],
+        'marke': row[KitchenItemFields.marke],
+        'einheit': row[KitchenItemFields.einheit],
+        'tags': tagNames,
+      });
+    }
+
+    return itemsWithTags;
   }
 }
