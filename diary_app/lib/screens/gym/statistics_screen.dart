@@ -207,7 +207,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
                 barRods: [
                     BarChartRodData(
                         toY: e.value.value.toDouble(),
-                        color: Theme.of(context).primaryColor,
+                              color: Theme.of(context).colorScheme.primary,
                         width: 16,
                         borderRadius: BorderRadius.circular(4),
                     ),

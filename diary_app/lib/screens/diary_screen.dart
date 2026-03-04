@@ -6,7 +6,7 @@ import 'package:diary_app/screens/add_entry_screen.dart';
 import 'package:diary_app/services/export_service.dart';
 import 'package:diary_app/screens/trash_screen.dart';
 import 'package:diary_app/screens/gym_screen.dart';
-import 'package:diary_app/screens/settings_screen.dart';
+import 'package:diary_app/screens/settings/settings_screen.dart';
 import 'package:diary_app/widgets/app_drawer.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -219,15 +219,15 @@ class _DiaryScreenState extends State<DiaryScreen> {
                 startingDayOfWeek: StartingDayOfWeek.monday,
                 calendarStyle: CalendarStyle(
                   markerDecoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor,
+                    color: Theme.of(context).colorScheme.primary,
                     shape: BoxShape.circle,
                   ),
                   todayDecoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withOpacity(0.5),
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
                     shape: BoxShape.circle,
                   ),
                   selectedDecoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor,
+                    color: Theme.of(context).colorScheme.primary,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -330,7 +330,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                                           ?.copyWith(
                                             fontWeight: FontWeight.bold,
                                             color:
-                                                Theme.of(context).primaryColor,
+                                                Theme.of(context).colorScheme.primary,
                                           ),
                                     ),
                                     const SizedBox(height: 8),

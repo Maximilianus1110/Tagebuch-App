@@ -4,7 +4,9 @@ import 'package:diary_app/models/gym/gym_plan.dart';
 import 'package:diary_app/models/gym/gym_exercise.dart';
 import 'package:diary_app/models/gym/gym_training.dart';
 import 'package:diary_app/services/gym_service.dart';
+import 'package:diary_app/services/settings_service.dart';
 import 'package:intl/intl.dart';
+import 'package:vibration/vibration.dart';
 
 class TrainingSessionScreen extends StatefulWidget {
   final GymPlan plan;
@@ -67,6 +69,8 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
   Timer? _restTimer;
   int _restSeconds = 0;
   bool _isResting = false;
+  int _targetRestSeconds = 150;
+  bool _hasVibrated = false;
 
   // Active Set Timer (to update UI if needed, though main logic uses timestamps)
   Timer? _activeSetTicker;
@@ -78,6 +82,12 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
       _sessionStartTime = widget.date!;
     }
     _loadSession();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final settingsService = SettingsService();
+    _targetRestSeconds = await settingsService.getRestTimerDuration();
   }
 
   @override
@@ -221,11 +231,19 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
     _restTimer?.cancel();
     _restSeconds = 0;
     _isResting = true;
-    _restTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _hasVibrated = false;
+    _restTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       if (mounted) {
         setState(() {
           _restSeconds++;
         });
+
+        if (_restSeconds >= _targetRestSeconds && !_hasVibrated) {
+          _hasVibrated = true;
+          if (await Vibration.hasVibrator() ?? false) {
+            Vibration.vibrate();
+          }
+        }
       }
     });
   }
@@ -239,7 +257,22 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
   }
 
   Future<void> _finishSession() async {
-    // Save logic
+    // Show rating/note dialog
+    int? rating;
+    String? note;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _TrainingFinishDialog(
+        onResult: (r, n) {
+          rating = r;
+          note = n;
+        },
+      ),
+    );
+
+    // Save regardless of cancel or save, using whatever values were provided
     setState(() => _isLoading = true);
 
     try {
@@ -250,18 +283,20 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
         planId: widget.plan.id!,
         date: _sessionStartTime,
         durationSeconds: durationSeconds,
+        rating: rating,
+        note: note,
       );
 
       final setsToSave = <GymSet>[];
 
       for (var ex in _exercises) {
         for (var s in ex.sets) {
-          if (s.isDone) { // Only save done sets? Or all? Usually only done.
+          if (s.isDone) {
             final weight = double.tryParse(s.weightController.text.replaceAll(',', '.'));
             final reps = int.tryParse(s.repsController.text);
 
             setsToSave.add(GymSet(
-              trainingId: 0, // Ignored
+              trainingId: 0,
               exerciseId: ex.exercise.id!,
               setNumber: s.setNumber,
               weight: weight,
@@ -280,7 +315,6 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
         Navigator.pop(context);
       }
     } catch (e) {
-      // Error
       setState(() => _isLoading = false);
     }
   }
@@ -412,7 +446,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                                       child: ElevatedButton(
                                         style: ElevatedButton.styleFrom(
                                           padding: EdgeInsets.zero,
-                                          backgroundColor: set.isActive ? Colors.red : (set.isDone ? Colors.green : Theme.of(context).primaryColor),
+                                        backgroundColor: set.isActive ? Colors.red : (set.isDone ? Colors.green : Theme.of(context).colorScheme.primary),
                                           foregroundColor: Colors.white,
                                           minimumSize: const Size(60, 36),
                                         ),
@@ -526,6 +560,82 @@ class _SimpleExerciseSelector extends StatefulWidget {
 
   @override
   State<_SimpleExerciseSelector> createState() => _SimpleExerciseSelectorState();
+}
+
+class _TrainingFinishDialog extends StatefulWidget {
+  final Function(int?, String?) onResult;
+
+  const _TrainingFinishDialog({required this.onResult});
+
+  @override
+  State<_TrainingFinishDialog> createState() => _TrainingFinishDialogState();
+}
+
+class _TrainingFinishDialogState extends State<_TrainingFinishDialog> {
+  int? _rating;
+  final TextEditingController _noteController = TextEditingController();
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Training abschließen'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Wie war das Training? (optional)'),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(5, (index) {
+                return IconButton(
+                  icon: Icon(
+                    index < (_rating ?? 0) ? Icons.star : Icons.star_border,
+                    color: Colors.amber,
+                    size: 32,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _rating = index + 1;
+                    });
+                  },
+                );
+              }),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _noteController,
+              decoration: const InputDecoration(
+                labelText: 'Anmerkungen (optional)',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context), // Abbrechen (speichert ohne Bewertung)
+          child: const Text('Überspringen'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            widget.onResult(_rating, _noteController.text.isEmpty ? null : _noteController.text);
+            Navigator.pop(context); // Speichern
+          },
+          child: const Text('Speichern'),
+        ),
+      ],
+    );
+  }
 }
 
 class _SimpleExerciseSelectorState extends State<_SimpleExerciseSelector> {
