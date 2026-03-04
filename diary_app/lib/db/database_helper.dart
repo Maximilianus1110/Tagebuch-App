@@ -2,6 +2,8 @@ import 'package:diary_app/models/diary_entry.dart';
 import 'package:diary_app/models/gym/gym_exercise.dart';
 import 'package:diary_app/models/gym/gym_plan.dart';
 import 'package:diary_app/models/gym/gym_training.dart';
+import 'package:diary_app/models/kitchen/kitchen_item.dart';
+import 'package:diary_app/models/kitchen/kitchen_tag.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -38,7 +40,7 @@ class DatabaseHelper {
 
     final db = await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -65,6 +67,7 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
 ''');
 
     await _createGymTables(db);
+    await _createKitchenTables(db);
   }
 
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -125,6 +128,48 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
         // Ignore
       }
     }
+    if (oldVersion < 8) {
+      // Version 8: Add kitchen tables
+      await _createKitchenTables(db);
+    }
+  }
+
+  Future _createKitchenTables(Database db) async {
+    const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    const textType = 'TEXT NOT NULL';
+    const textNullable = 'TEXT';
+    const realType = 'REAL NOT NULL';
+    const intType = 'INTEGER NOT NULL';
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${KitchenItemFields.tableName} (
+  ${KitchenItemFields.id} $idType,
+  ${KitchenItemFields.name} $textType,
+  ${KitchenItemFields.basisProdukt} $textType,
+  ${KitchenItemFields.marke} $textNullable,
+  ${KitchenItemFields.menge} $realType,
+  ${KitchenItemFields.einheit} $textType,
+  ${KitchenItemFields.haltbarBis} $textNullable,
+  ${KitchenItemFields.hinzugefuegt} $textType
+)
+''');
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${KitchenTagFields.tableName} (
+  ${KitchenTagFields.id} $idType,
+  ${KitchenTagFields.name} TEXT NOT NULL UNIQUE
+)
+''');
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${KitchenItemTagFields.tableName} (
+  ${KitchenItemTagFields.itemId} $intType,
+  ${KitchenItemTagFields.tagId} $intType,
+  PRIMARY KEY (${KitchenItemTagFields.itemId}, ${KitchenItemTagFields.tagId}),
+  FOREIGN KEY (${KitchenItemTagFields.itemId}) REFERENCES ${KitchenItemFields.tableName} (${KitchenItemFields.id}) ON DELETE CASCADE,
+  FOREIGN KEY (${KitchenItemTagFields.tagId}) REFERENCES ${KitchenTagFields.tableName} (${KitchenTagFields.id}) ON DELETE CASCADE
+)
+''');
   }
 
   Future _createGymTables(Database db) async {
