@@ -53,6 +53,59 @@ class KitchenService {
     });
   }
 
+  Future<KitchenItem> updateItem(KitchenItem item, List<String> tagNames) async {
+    final db = await _dbHelper.database;
+    return await db.transaction((txn) async {
+      // 1. Update item
+      await txn.update(
+        KitchenItemFields.tableName,
+        item.toJson(),
+        where: '${KitchenItemFields.id} = ?',
+        whereArgs: [item.id],
+      );
+
+      // 2. Delete old tags relationships
+      await txn.delete(
+        KitchenItemTagFields.tableName,
+        where: '${KitchenItemTagFields.itemId} = ?',
+        whereArgs: [item.id],
+      );
+
+      // 3. Insert new tags and relationships
+      for (final tagName in tagNames) {
+        final tag = tagName.trim();
+        if (tag.isEmpty) continue;
+
+        final existingTags = await txn.query(
+          KitchenTagFields.tableName,
+          where: '${KitchenTagFields.name} = ?',
+          whereArgs: [tag],
+        );
+
+        int tagId;
+        if (existingTags.isNotEmpty) {
+          tagId = existingTags.first[KitchenTagFields.id] as int;
+        } else {
+          tagId = await txn.insert(
+            KitchenTagFields.tableName,
+            {KitchenTagFields.name: tag},
+          );
+        }
+
+        await txn.insert(
+          KitchenItemTagFields.tableName,
+          {
+            KitchenItemTagFields.itemId: item.id,
+            KitchenItemTagFields.tagId: tagId,
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+
+      return item;
+    });
+  }
+
   Future<List<KitchenItem>> getAllItems() async {
     final db = await _dbHelper.database;
     final result = await db.query(

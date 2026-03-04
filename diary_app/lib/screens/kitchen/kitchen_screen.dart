@@ -172,16 +172,35 @@ class _KitchenScreenState extends State<KitchenScreen> {
   }
 
   Color _getExpirationColor(DateTime? expirationDate) {
-    if (expirationDate == null) return Colors.grey;
+    if (expirationDate == null) return Colors.grey.shade400; // hellgrau kein MHD
     final now = DateTime.now();
-    // Reset time parts to compare purely by date
     final today = DateTime(now.year, now.month, now.day);
     final expiration = DateTime(expirationDate.year, expirationDate.month, expirationDate.day);
     final difference = expiration.difference(today).inDays;
 
-    if (difference < 0) return Colors.red; // Expired
-    if (difference <= 3) return Colors.orange; // Expiring soon
-    return Colors.green; // Still good
+    if (difference < 4) return Colors.red; // Rot < 4 Tage verbleibend (0, 1, 2, 3) + abgelaufen
+    if (difference < 10) return Colors.orange; // Gelb < 10 Tage verbleibend (4, 5, 6, 7, 8, 9)
+    return Colors.green; // Grün >= 10 Tage verbleibend
+  }
+
+  Color _getMostCriticalColor(List<KitchenItem> items) {
+    int severity = 0; // 0 = grey, 1 = green, 2 = orange, 3 = red
+    for (var item in items) {
+      final color = _getExpirationColor(item.haltbarBis);
+      if (color == Colors.red) {
+        severity = 3;
+        break; // Max severity
+      } else if (color == Colors.orange && severity < 2) {
+        severity = 2;
+      } else if (color == Colors.green && severity < 1) {
+        severity = 1;
+      }
+    }
+
+    if (severity == 3) return Colors.red;
+    if (severity == 2) return Colors.orange;
+    if (severity == 1) return Colors.green;
+    return Colors.grey.shade400;
   }
 
   @override
@@ -200,6 +219,34 @@ class _KitchenScreenState extends State<KitchenScreen> {
          if (a == 'Ohne Tags') return 1;
          if (b == 'Ohne Tags') return -1;
        }
+
+       if (_sortOption == KitchenSortOption.basisProdukt) {
+         // Sort by MHD of the most critical item in the group, then alphabetically
+         DateTime? getEarliestMhd(String key) {
+           DateTime? earliest;
+           for (var secondary in groupedItems[key]!.values) {
+             for (var item in secondary) {
+               if (item.haltbarBis != null) {
+                 if (earliest == null || item.haltbarBis!.isBefore(earliest)) {
+                   earliest = item.haltbarBis;
+                 }
+               }
+             }
+           }
+           return earliest;
+         }
+
+         final earliestA = getEarliestMhd(a);
+         final earliestB = getEarliestMhd(b);
+
+         if (earliestA == null && earliestB == null) return a.compareTo(b);
+         if (earliestA == null) return 1;
+         if (earliestB == null) return -1;
+
+         final dateComparison = earliestA.compareTo(earliestB);
+         if (dateComparison != 0) return dateComparison;
+       }
+
        return a.compareTo(b);
     });
 
@@ -348,15 +395,26 @@ class _KitchenScreenState extends State<KitchenScreen> {
                               return Column(
                                 children: [
                                   ExpansionTile(
-                                    title: Text(
-                                      basisProdukt,
-                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    title: Row(
+                                      children: [
+                                        Container(
+                                          width: 4,
+                                          height: 24,
+                                          margin: const EdgeInsets.only(right: 8),
+                                          decoration: BoxDecoration(
+                                            color: _getMostCriticalColor(itemsForSecondaryGroup),
+                                            borderRadius: BorderRadius.circular(2),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: Text(
+                                            basisProdukt,
+                                            style: const TextStyle(fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                     subtitle: Text('Gesamt: $displayTotal'),
-                                    leading: CircleAvatar(
-                                      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                                      child: Icon(Icons.kitchen, color: Theme.of(context).colorScheme.onPrimaryContainer),
-                                    ),
                                     children: itemsForSecondaryGroup.map<Widget>((item) {
                                       // Get tags for display
                                       final itemTags = item.id != null && _itemTags.containsKey(item.id!)
@@ -364,6 +422,20 @@ class _KitchenScreenState extends State<KitchenScreen> {
                                           : '';
 
                                       return ListTile(
+                                        onTap: () async {
+                                          final tags = item.id != null && _itemTags.containsKey(item.id!) ? _itemTags[item.id!]! : <KitchenTag>[];
+                                          final result = await Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (context) => AddKitchenItemScreen(
+                                                existingItem: item,
+                                                existingTags: tags,
+                                              ),
+                                            ),
+                                          );
+                                          if (result == true) {
+                                            _loadItems();
+                                          }
+                                        },
                                         contentPadding: const EdgeInsets.only(left: 72, right: 16),
                                         title: Text(item.name),
                                         subtitle: Column(

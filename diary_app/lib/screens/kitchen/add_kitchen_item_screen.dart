@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:diary_app/models/kitchen/kitchen_item.dart';
+import 'package:diary_app/models/kitchen/kitchen_tag.dart';
 import 'package:diary_app/services/kitchen_service.dart';
 
 class AddKitchenItemScreen extends StatefulWidget {
-  const AddKitchenItemScreen({super.key});
+  final KitchenItem? existingItem;
+  final List<KitchenTag>? existingTags;
+
+  const AddKitchenItemScreen({
+    super.key,
+    this.existingItem,
+    this.existingTags,
+  });
 
   @override
   State<AddKitchenItemScreen> createState() => _AddKitchenItemScreenState();
@@ -28,18 +36,43 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
 
   bool _isSaving = false;
   List<Map<String, dynamic>> _autocompleteOptions = [];
+  List<KitchenTag> _allExistingTags = [];
 
   @override
   void initState() {
     super.initState();
+    if (widget.existingItem != null) {
+      final item = widget.existingItem!;
+      _name = item.name;
+      _basisProduktController.text = item.basisProdukt;
+      _markeController.text = item.marke ?? '';
+      _selectedEinheit = item.einheit;
+
+      // Need to convert stored g to kg, or ml to l, if we want to show it the same way?
+      // It's safer to just show the stored unit and amount directly since we only store base units.
+      _mengeController.text = item.menge == item.menge.toInt()
+          ? item.menge.toInt().toString()
+          : item.menge.toStringAsFixed(2).replaceAll(RegExp(r'0*$'), '').replaceAll(RegExp(r'\.$'), '');
+
+      if (item.haltbarBis != null) {
+        _selectedDate = item.haltbarBis;
+        _dateController.text = DateFormat('dd.MM.yyyy').format(item.haltbarBis!);
+      }
+
+      if (widget.existingTags != null) {
+        _tagsController.text = widget.existingTags!.map((t) => t.name).join(', ');
+      }
+    }
     _loadAutocompleteOptions();
   }
 
   Future<void> _loadAutocompleteOptions() async {
     final options = await _kitchenService.getDistinctItemsForAutocomplete();
+    final tags = await _kitchenService.getAllTags();
     if (mounted) {
       setState(() {
         _autocompleteOptions = options;
+        _allExistingTags = tags;
       });
     }
   }
@@ -133,14 +166,17 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
         finalEinheit = 'ml';
       }
 
+      final isEditing = widget.existingItem != null;
+
       final newItem = KitchenItem(
+        id: isEditing ? widget.existingItem!.id : null,
         name: _name.trim(),
         basisProdukt: _basisProduktController.text.trim(),
         marke: _markeController.text.trim().isEmpty ? null : _markeController.text.trim(),
         menge: menge,
         einheit: finalEinheit,
         haltbarBis: _selectedDate,
-        hinzugefuegt: DateTime.now(),
+        hinzugefuegt: isEditing ? widget.existingItem!.hinzugefuegt : DateTime.now(),
       );
 
       final tagsString = _tagsController.text;
@@ -150,7 +186,11 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
           .where((t) => t.isNotEmpty)
           .toList();
 
-      await _kitchenService.createItem(newItem, tagsList);
+      if (isEditing) {
+        await _kitchenService.updateItem(newItem, tagsList);
+      } else {
+        await _kitchenService.createItem(newItem, tagsList);
+      }
 
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -164,9 +204,11 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isEditing = widget.existingItem != null;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Neuen Vorrat hinzufügen'),
+        title: Text(isEditing ? 'Vorrat bearbeiten' : 'Neuen Vorrat hinzufügen'),
         actions: [
           if (_isSaving)
             const Padding(
@@ -212,6 +254,9 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
                   controller.addListener(() {
                     _name = controller.text;
                   });
+                  if (_name.isNotEmpty && controller.text.isEmpty) {
+                     controller.text = _name;
+                  }
                   return TextFormField(
                     controller: controller,
                     focusNode: focusNode,
@@ -219,6 +264,9 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
                       labelText: 'Produktname (z.B. Barilla Spaghetti No. 5)',
                       border: OutlineInputBorder(),
                     ),
+                    onTap: () {
+                       // Select all text when tapped, if desired
+                    },
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Bitte einen Namen eingeben.';
@@ -383,12 +431,60 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _tagsController,
-                decoration: const InputDecoration(
-                  labelText: 'Tags (kommagetrennt, z.B. Nudeln, Vorrat)',
-                  border: OutlineInputBorder(),
-                ),
+              Autocomplete<String>(
+                optionsBuilder: (TextEditingValue textEditingValue) {
+                  final text = textEditingValue.text;
+                  if (text.isEmpty) {
+                    return const Iterable<String>.empty();
+                  }
+
+                  // Find the current word being typed (after the last comma)
+                  final parts = text.split(',');
+                  final lastPart = parts.last.trimLeft();
+
+                  if (lastPart.isEmpty) {
+                     return const Iterable<String>.empty();
+                  }
+
+                  final query = lastPart.toLowerCase();
+                  return _allExistingTags
+                      .map((t) => t.name)
+                      .where((tagName) => tagName.toLowerCase().contains(query));
+                },
+                onSelected: (String selection) {
+                  final text = _tagsController.text;
+                  final parts = text.split(',');
+
+                  // Replace the last part with the selected tag
+                  if (parts.isNotEmpty) {
+                    parts.removeLast();
+                  }
+
+                  parts.add(selection);
+
+                  // Join with commas and add a trailing comma+space for next tag
+                  _tagsController.text = '${parts.map((p) => p.trim()).join(', ')}, ';
+                  // Move cursor to end
+                  _tagsController.selection = TextSelection.fromPosition(
+                    TextPosition(offset: _tagsController.text.length),
+                  );
+                },
+                fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                  controller.addListener(() {
+                     _tagsController.text = controller.text;
+                  });
+                  if (_tagsController.text.isNotEmpty && controller.text.isEmpty) {
+                      controller.text = _tagsController.text;
+                  }
+                  return TextFormField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: const InputDecoration(
+                      labelText: 'Tags (kommagetrennt, z.B. Nudeln, Vorrat)',
+                      border: OutlineInputBorder(),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 32),
               ElevatedButton.icon(
