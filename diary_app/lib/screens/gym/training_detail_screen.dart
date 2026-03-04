@@ -111,9 +111,12 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
           ? const Center(child: CircularProgressIndicator())
           : ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: _exerciseSets.length,
+              itemCount: _exerciseSets.length + 1, // +1 for Header (Rating/Note)
               itemBuilder: (context, index) {
-                final group = _exerciseSets[index];
+                if (index == 0) {
+                  return _buildHeader();
+                }
+                final group = _exerciseSets[index - 1];
                 return Card(
                   margin: const EdgeInsets.only(bottom: 16),
                   child: Padding(
@@ -139,6 +142,50 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
                 );
               },
             ),
+    );
+  }
+
+  Widget _buildHeader() {
+    if (widget.training.rating == null && widget.training.note == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      color: Theme.of(context).cardColor,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.training.rating != null)
+              Row(
+                children: [
+                  const Text('Bewertung: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ...List.generate(
+                    5,
+                    (index) => Icon(
+                      index < widget.training.rating! ? Icons.star : Icons.star_border,
+                      color: Colors.amber,
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
+            if (widget.training.rating != null && widget.training.note != null)
+              const SizedBox(height: 8),
+            if (widget.training.note != null)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Notiz:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(widget.training.note!),
+                ],
+              ),
+          ],
+        ),
+      ),
     );
   }
 

@@ -41,6 +41,8 @@ dependencies:
   intl: ^0.20.2
   table_calendar: ^3.2.0
   scrollable_positioned_list: ^0.3.8
+  vibration: ^3.1.7
+  shared_preferences: ^2.5.4
 
 dev_dependencies:
   flutter_test:

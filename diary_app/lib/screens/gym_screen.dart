@@ -4,6 +4,7 @@ import 'package:diary_app/screens/gym/create_plan_screen.dart';
 import 'package:diary_app/screens/gym/manage_exercises_screen.dart';
 import 'package:diary_app/screens/gym/training_session_screen.dart';
 import 'package:diary_app/screens/gym/training_detail_screen.dart';
+import 'package:diary_app/screens/settings_screen.dart';
 import 'package:diary_app/services/gym_service.dart';
 import 'package:diary_app/widgets/app_drawer.dart';
 import 'package:flutter/material.dart';
@@ -167,6 +168,16 @@ class _GymScreenState extends State<GymScreen> {
             onTap: _showAddPastTrainingDialog,
           ),
           const Divider(),
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: const Text('Einstellungen'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.book),
             title: const Text('Zum Tagebuch'),
@@ -417,9 +428,25 @@ class _GymScreenState extends State<GymScreen> {
             const SizedBox(width: 16),
             // Plan Name Section
             Expanded(
-              child: Text(
-                item.planName,
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.planName,
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  if (item.training.rating != null)
+                    Row(
+                      children: List.generate(
+                        5,
+                        (index) => Icon(
+                          index < item.training.rating! ? Icons.star : Icons.star_border,
+                          size: 16,
+                          color: Colors.amber,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
               // Volume Section
