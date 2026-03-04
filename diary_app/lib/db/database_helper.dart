@@ -38,7 +38,7 @@ class DatabaseHelper {
 
     final db = await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -117,6 +117,14 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
         // Ignore
       }
     }
+    if (oldVersion < 7) {
+      // Version 7: Add rating to trainings
+      try {
+        await db.execute('ALTER TABLE ${GymTrainingFields.tableName} ADD COLUMN ${GymTrainingFields.rating} INTEGER');
+      } catch (e) {
+        // Ignore
+      }
+    }
   }
 
   Future _createGymTables(Database db) async {
@@ -168,6 +176,7 @@ CREATE TABLE IF NOT EXISTS ${GymTrainingFields.tableName} (
   ${GymTrainingFields.date} $textType,
   ${GymTrainingFields.note} $textNullable,
   ${GymTrainingFields.durationSeconds} $intNullable,
+  ${GymTrainingFields.rating} $intNullable,
   FOREIGN KEY (${GymTrainingFields.planId}) REFERENCES ${GymPlanFields.tableName} (${GymPlanFields.id})
 )
 ''');

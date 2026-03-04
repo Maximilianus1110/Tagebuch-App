@@ -10,6 +10,7 @@ import 'package:diary_app/services/export_service.dart';
 import 'package:diary_app/widgets/app_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:diary_app/screens/settings/settings_screen.dart';
 
 class GymScreen extends StatefulWidget {
   const GymScreen({super.key});
@@ -188,6 +189,16 @@ class _GymScreenState extends State<GymScreen> {
           ),
           const Divider(),
           ListTile(
+            leading: const Icon(Icons.settings),
+            title: const Text('Einstellungen'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.book),
             title: const Text('Zum Tagebuch'),
             onTap: () {
@@ -318,7 +329,7 @@ class _GymScreenState extends State<GymScreen> {
       width: 160,
       margin: const EdgeInsets.only(right: 16),
       child: Card(
-        color: Theme.of(context).cardColor.withOpacity(0.8),
+        color: Theme.of(context).cardColor.withValues(alpha: 0.8),
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -347,9 +358,6 @@ class _GymScreenState extends State<GymScreen> {
   }
 
   Widget _buildHistoryItem(TrainingHistoryItem item) {
-    final dateFormat = DateFormat('dd.MM.yyyy'); // Or 'dd MMM, yyyy'
-    final dateStr = dateFormat.format(item.training.date);
-
     // Day number big
     final dayNumber = DateFormat('dd').format(item.training.date);
     final monthYear = DateFormat('MMM, yyyy').format(item.training.date);
@@ -395,9 +403,25 @@ class _GymScreenState extends State<GymScreen> {
             const SizedBox(width: 16),
             // Plan Name Section
             Expanded(
-              child: Text(
-                item.planName,
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.planName,
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  if (item.training.rating != null)
+                    Row(
+                      children: List.generate(
+                        5,
+                        (starIndex) => Icon(
+                          starIndex < item.training.rating! ? Icons.star : Icons.star_border,
+                          size: 16,
+                          color: Colors.amber,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
               // Volume Section

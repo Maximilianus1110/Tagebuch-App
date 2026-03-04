@@ -35,8 +35,6 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
       final allExercises = await _gymService.getAllExercises();
       final exerciseMap = {for (var e in allExercises) e.id: e};
 
-      // Group by exercise
-      final Map<int, List<GymSet>> grouped = {};
       // Preserve order? The query orders by setNumber, but sets come mixed?
       // Actually `getSetsForTraining` orders by `exerciseId`, `setNumber`.
       // This loses the order of exercises performed if they were interleaved or reordered.
@@ -108,12 +106,44 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
+          : ListView(
               padding: const EdgeInsets.all(16),
-              itemCount: _exerciseSets.length,
-              itemBuilder: (context, index) {
-                final group = _exerciseSets[index];
-                return Card(
+              children: [
+                if (widget.training.rating != null || (widget.training.note?.isNotEmpty ?? false))
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (widget.training.rating != null) ...[
+                            Row(
+                              children: [
+                                const Text('Bewertung: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                                ...List.generate(
+                                  5,
+                                  (index) => Icon(
+                                    index < widget.training.rating! ? Icons.star : Icons.star_border,
+                                    color: Colors.amber,
+                                    size: 20,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          if (widget.training.note?.isNotEmpty ?? false) ...[
+                            const Text('Anmerkungen:', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
+                            Text(widget.training.note!),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ..._exerciseSets.map((group) => Card(
                   margin: const EdgeInsets.only(bottom: 16),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -166,8 +196,8 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
                       ],
                     ),
                   ),
-                );
-              },
+                )),
+              ],
             ),
     );
   }

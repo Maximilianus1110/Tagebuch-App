@@ -2,9 +2,49 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:diary_app/services/theme_provider.dart';
 import 'package:diary_app/services/export_service.dart';
+import 'package:diary_app/services/settings_service.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  int _restTimerSeconds = 150;
+  final SettingsService _settingsService = SettingsService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final seconds = await _settingsService.getRestTimerDuration();
+    if (mounted) {
+      setState(() {
+        _restTimerSeconds = seconds;
+      });
+    }
+  }
+
+  Future<void> _updateRestTimer(int deltaSeconds) async {
+    final newValue = _restTimerSeconds + deltaSeconds;
+    if (newValue >= 0) {
+      setState(() {
+        _restTimerSeconds = newValue;
+      });
+      await _settingsService.setRestTimerDuration(newValue);
+    }
+  }
+
+  String _formatDuration(int seconds) {
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +82,33 @@ class SettingsScreen extends StatelessWidget {
                 DropdownMenuItem(
                   value: ThemeMode.dark,
                   child: Text('Dunkel'),
+                ),
+              ],
+            ),
+          ),
+          const Divider(),
+          const Divider(),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text('Gym', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+          ListTile(
+            title: const Text('Pausen-Timer'),
+            subtitle: const Text('Dauer der Pause zwischen Sätzen'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.remove),
+                  onPressed: () => _updateRestTimer(-10),
+                ),
+                Text(
+                  _formatDuration(_restTimerSeconds),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: () => _updateRestTimer(10),
                 ),
               ],
             ),
