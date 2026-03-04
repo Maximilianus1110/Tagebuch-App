@@ -1,8 +1,10 @@
 import 'package:diary_app/db/database_helper.dart';
 import 'package:diary_app/main.dart';
 import 'package:diary_app/models/diary_entry.dart';
+import 'package:diary_app/services/theme_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 
 class MockDatabaseHelper extends DatabaseHelper {
   MockDatabaseHelper() : super.test();
@@ -91,7 +93,12 @@ void main() {
   });
 
   testWidgets('Create, Verify List, Search, Edit, Delete', (WidgetTester tester) async {
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(
+      ChangeNotifierProvider(
+        create: (_) => ThemeProvider(),
+        child: const MyApp(),
+      ),
+    );
     await tester.pumpAndSettle(); // Should resolve quickly with mock
 
     // Navigate to Diary

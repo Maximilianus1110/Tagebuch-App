@@ -152,7 +152,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: item.isWarmup ? Colors.orangeAccent : Theme.of(context).primaryColor,
+                                  backgroundColor: item.isWarmup ? Colors.orangeAccent : Theme.of(context).colorScheme.primary,
                                   foregroundColor: Colors.white,
                                   child: item.isWarmup ? const Icon(Icons.hot_tub, size: 20) : Text('${index + 1}'),
                                 ),

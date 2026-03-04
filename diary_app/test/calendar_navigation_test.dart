@@ -1,8 +1,10 @@
 import 'package:diary_app/db/database_helper.dart';
 import 'package:diary_app/main.dart';
 import 'package:diary_app/models/diary_entry.dart';
+import 'package:diary_app/services/theme_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
@@ -65,7 +67,12 @@ void main() {
 
   testWidgets('Calendar presence and toggle', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(
+      ChangeNotifierProvider(
+        create: (_) => ThemeProvider(),
+        child: const MyApp(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     // Navigate to Diary
