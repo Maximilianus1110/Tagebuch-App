@@ -505,6 +505,23 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                   },
                 ),
 
+          // Button to finish training early (at the bottom)
+          if (!_isLoading && _exercises.isNotEmpty)
+            Positioned(
+              bottom: _isResting ? 80 : 16,
+              left: 16,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                onPressed: _finishSession,
+                icon: const Icon(Icons.check_circle),
+                label: const Text('Training abschließen', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+
           // Floating Action Button to Add Exercise
           Positioned(
             bottom: _isResting ? 80 : 16,
