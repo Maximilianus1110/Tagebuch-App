@@ -302,11 +302,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> with SingleTickerPr
                       color: color,
                       barWidth: 3,
                       dotData: const FlDotData(show: true),
-                      belowBarData: BarAreaData(show: true, color: color.withOpacity(0.1)),
+                      belowBarData: BarAreaData(show: true, color: color.withValues(alpha: 0.1)),
                   ),
               ],
               titlesData: const FlTitlesData(show: false),
-              gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.withOpacity(0.2), strokeWidth: 1)),
+              gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.withValues(alpha: 0.2), strokeWidth: 1)),
               borderData: FlBorderData(show: false),
           ),
       );

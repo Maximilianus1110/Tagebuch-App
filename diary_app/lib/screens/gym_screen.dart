@@ -329,7 +329,7 @@ class _GymScreenState extends State<GymScreen> {
       width: 160,
       margin: const EdgeInsets.only(right: 16),
       child: Card(
-        color: Theme.of(context).cardColor.withOpacity(0.8),
+        color: Theme.of(context).cardColor.withValues(alpha: 0.8),
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -358,9 +358,6 @@ class _GymScreenState extends State<GymScreen> {
   }
 
   Widget _buildHistoryItem(TrainingHistoryItem item) {
-    final dateFormat = DateFormat('dd.MM.yyyy'); // Or 'dd MMM, yyyy'
-    final dateStr = dateFormat.format(item.training.date);
-
     // Day number big
     final dayNumber = DateFormat('dd').format(item.training.date);
     final monthYear = DateFormat('MMM, yyyy').format(item.training.date);

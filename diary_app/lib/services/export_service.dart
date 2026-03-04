@@ -30,6 +30,7 @@ class ExportService {
     final file = File('${directory.path}/tagebuch_export.txt');
     await file.writeAsString(buffer.toString());
 
+    // ignore: deprecated_member_use
     await Share.shareXFiles([XFile(file.path)], text: 'Mein Tagebuch Export');
   }
 
@@ -82,6 +83,7 @@ class ExportService {
     final file = File('${directory.path}/gym_export.txt');
     await file.writeAsString(buffer.toString());
 
+    // ignore: deprecated_member_use
     await Share.shareXFiles([XFile(file.path)], text: 'Mein Gym Export');
   }
 
@@ -155,7 +157,8 @@ class ExportService {
         }
 
         if (files.isNotEmpty) {
-            await Share.shareXFiles(files, text: 'Mein Kompletter Daten Export');
+            // ignore: deprecated_member_use
+    await Share.shareXFiles(files, text: 'Mein Kompletter Daten Export');
         } else {
              if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Keine Daten zum Exportieren gefunden.')));

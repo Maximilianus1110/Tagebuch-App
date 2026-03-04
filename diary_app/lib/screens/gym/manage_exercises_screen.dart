@@ -93,7 +93,7 @@ class _ManageExercisesScreenState extends State<ManageExercisesScreen> {
 
     if (result != null) {
       if (isEditing) {
-        final updated = exercise!.copyWith(
+        final updated = exercise.copyWith(
           name: result['name'],
           description: result['description'],
         );

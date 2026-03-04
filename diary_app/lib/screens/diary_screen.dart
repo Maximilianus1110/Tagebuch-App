@@ -223,7 +223,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                     shape: BoxShape.circle,
                   ),
                   todayDecoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
                     shape: BoxShape.circle,
                   ),
                   selectedDecoration: BoxDecoration(
@@ -264,12 +264,12 @@ class _DiaryScreenState extends State<DiaryScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).cardColor.withOpacity(0.8),
+                        color: Theme.of(context).cardColor.withValues(alpha: 0.8),
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.grey.withOpacity(0.5)),
+                        border: Border.all(color: Colors.grey.withValues(alpha: 0.5)),
                         boxShadow: [
                             BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
+                                color: Colors.black.withValues(alpha: 0.1),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
                             )

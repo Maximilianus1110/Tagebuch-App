@@ -5,7 +5,6 @@ import 'package:diary_app/models/gym/gym_exercise.dart';
 import 'package:diary_app/models/gym/gym_training.dart';
 import 'package:diary_app/services/gym_service.dart';
 import 'package:diary_app/services/settings_service.dart';
-import 'package:intl/intl.dart';
 import 'package:vibration/vibration.dart';
 
 class TrainingSessionScreen extends StatefulWidget {
@@ -158,6 +157,8 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
     // I'll implement a simple selection dialog here.
     final allExercises = await _gymService.getAllExercises();
 
+    if (!mounted) return;
+
     // Show dialog
     final GymExercise? selected = await showDialog<GymExercise>(
       context: context,
@@ -240,7 +241,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
 
         if (_restSeconds >= _targetRestSeconds && !_hasVibrated) {
           _hasVibrated = true;
-          if (await Vibration.hasVibrator() ?? false) {
+          if (await Vibration.hasVibrator()) {
             Vibration.vibrate();
           }
         }
@@ -395,7 +396,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                             itemBuilder: (context, setIndex) {
                               final set = exercise.sets[setIndex];
                               return Container(
-                                color: set.isWarmup ? Colors.orange.withOpacity(0.1) : (set.isDone ? Colors.green.withOpacity(0.1) : null),
+                                color: set.isWarmup ? Colors.orange.withValues(alpha: 0.1) : (set.isDone ? Colors.green.withValues(alpha: 0.1) : null),
                                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                                 child: Row(
                                   children: [

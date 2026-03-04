@@ -35,8 +35,6 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
       final allExercises = await _gymService.getAllExercises();
       final exerciseMap = {for (var e in allExercises) e.id: e};
 
-      // Group by exercise
-      final Map<int, List<GymSet>> grouped = {};
       // Preserve order? The query orders by setNumber, but sets come mixed?
       // Actually `getSetsForTraining` orders by `exerciseId`, `setNumber`.
       // This loses the order of exercises performed if they were interleaved or reordered.
@@ -114,7 +112,7 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
                 if (widget.training.rating != null || (widget.training.note?.isNotEmpty ?? false))
                   Card(
                     margin: const EdgeInsets.only(bottom: 16),
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
