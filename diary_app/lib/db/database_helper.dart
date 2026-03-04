@@ -2,6 +2,7 @@ import 'package:diary_app/models/diary_entry.dart';
 import 'package:diary_app/models/gym/gym_exercise.dart';
 import 'package:diary_app/models/gym/gym_plan.dart';
 import 'package:diary_app/models/gym/gym_training.dart';
+import 'package:diary_app/models/kitchen/kitchen_history.dart';
 import 'package:diary_app/models/kitchen/kitchen_item.dart';
 import 'package:diary_app/models/kitchen/kitchen_tag.dart';
 import 'package:flutter/foundation.dart';
@@ -40,7 +41,7 @@ class DatabaseHelper {
 
     final db = await openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -132,6 +133,32 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
       // Version 8: Add kitchen tables
       await _createKitchenTables(db);
     }
+    if (oldVersion < 9) {
+      // Version 9: Add kitchen history
+      await _createKitchenHistoryTable(db);
+    }
+  }
+
+  Future _createKitchenHistoryTable(Database db) async {
+    const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    const textType = 'TEXT NOT NULL';
+    const textNullable = 'TEXT';
+    const realType = 'REAL NOT NULL';
+    const intNullable = 'INTEGER';
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${KitchenHistoryFields.tableName} (
+  ${KitchenHistoryFields.id} $idType,
+  ${KitchenHistoryFields.itemId} $intNullable,
+  ${KitchenHistoryFields.name} $textType,
+  ${KitchenHistoryFields.basisProdukt} $textType,
+  ${KitchenHistoryFields.marke} $textNullable,
+  ${KitchenHistoryFields.menge} $realType,
+  ${KitchenHistoryFields.einheit} $textType,
+  ${KitchenHistoryFields.eventType} $textType,
+  ${KitchenHistoryFields.timestamp} $textType
+)
+''');
   }
 
   Future _createKitchenTables(Database db) async {
@@ -170,6 +197,8 @@ CREATE TABLE IF NOT EXISTS ${KitchenItemTagFields.tableName} (
   FOREIGN KEY (${KitchenItemTagFields.tagId}) REFERENCES ${KitchenTagFields.tableName} (${KitchenTagFields.id}) ON DELETE CASCADE
 )
 ''');
+
+    await _createKitchenHistoryTable(db);
   }
 
   Future _createGymTables(Database db) async {

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:diary_app/db/database_helper.dart';
+import 'package:diary_app/models/kitchen/kitchen_history.dart';
 import 'package:diary_app/models/kitchen/kitchen_item.dart';
 import 'package:diary_app/models/kitchen/kitchen_tag.dart';
 import 'package:sqflite/sqflite.dart';
@@ -141,23 +142,74 @@ class KitchenService {
 
     final item = KitchenItem.fromJson(itemMap.first);
     final newAmount = item.menge - consumedAmount;
+    final actualConsumed = newAmount < 0 ? item.menge : consumedAmount;
 
-    if (newAmount <= 0) {
-      // Delete item
-      await db.delete(
+    await db.transaction((txn) async {
+      // Log in history
+      final history = KitchenHistory(
+        itemId: item.id,
+        name: item.name,
+        basisProdukt: item.basisProdukt,
+        marke: item.marke,
+        menge: actualConsumed,
+        einheit: item.einheit,
+        eventType: 'consumed',
+        timestamp: DateTime.now(),
+      );
+      await txn.insert(KitchenHistoryFields.tableName, history.toJson());
+
+      if (newAmount <= 0) {
+        // Delete item
+        await txn.delete(
+          KitchenItemFields.tableName,
+          where: '${KitchenItemFields.id} = ?',
+          whereArgs: [itemId],
+        );
+      } else {
+        // Update item amount
+        await txn.update(
+          KitchenItemFields.tableName,
+          {KitchenItemFields.menge: newAmount},
+          where: '${KitchenItemFields.id} = ?',
+          whereArgs: [itemId],
+        );
+      }
+    });
+  }
+
+  // Trash (wegschmeißen) an item completely
+  Future<void> trashItem(int itemId) async {
+    final db = await _dbHelper.database;
+
+    final itemMap = await db.query(
+      KitchenItemFields.tableName,
+      where: '${KitchenItemFields.id} = ?',
+      whereArgs: [itemId],
+    );
+
+    if (itemMap.isEmpty) return;
+
+    final item = KitchenItem.fromJson(itemMap.first);
+
+    await db.transaction((txn) async {
+      final history = KitchenHistory(
+        itemId: item.id,
+        name: item.name,
+        basisProdukt: item.basisProdukt,
+        marke: item.marke,
+        menge: item.menge, // The entire remaining amount is trashed
+        einheit: item.einheit,
+        eventType: 'trashed',
+        timestamp: DateTime.now(),
+      );
+      await txn.insert(KitchenHistoryFields.tableName, history.toJson());
+
+      await txn.delete(
         KitchenItemFields.tableName,
         where: '${KitchenItemFields.id} = ?',
         whereArgs: [itemId],
       );
-    } else {
-      // Update item amount
-      await db.update(
-        KitchenItemFields.tableName,
-        {KitchenItemFields.menge: newAmount},
-        where: '${KitchenItemFields.id} = ?',
-        whereArgs: [itemId],
-      );
-    }
+    });
   }
 
   // For future use if tags need to be suggested
@@ -251,6 +303,16 @@ class KitchenService {
         tags = (itemMap['tags'] as List).map((t) => t.toString().trim()).where((t) => t.isNotEmpty).toList();
       }
 
+      // Handle multiplier (packungen / anzahl)
+      int multiplier = 1;
+      final packungenRaw = itemMap['packungen'] ?? itemMap['anzahl'];
+      if (packungenRaw is num) {
+        multiplier = packungenRaw.toInt();
+      } else if (packungenRaw is String) {
+        multiplier = int.tryParse(packungenRaw) ?? 1;
+      }
+      if (multiplier < 1) multiplier = 1;
+
       final newItem = KitchenItem(
         name: name,
         basisProdukt: basisProdukt,
@@ -261,8 +323,10 @@ class KitchenService {
         hinzugefuegt: now,
       );
 
-      await createItem(newItem, tags);
-      importedCount++;
+      for (int i = 0; i < multiplier; i++) {
+        await createItem(newItem, tags);
+        importedCount++;
+      }
     }
 
     return importedCount;
@@ -297,5 +361,16 @@ class KitchenService {
     }
 
     return itemsWithTags;
+  }
+
+  // --- Statistics Methods ---
+
+  Future<List<KitchenHistory>> getHistoryEvents() async {
+    final db = await _dbHelper.database;
+    final result = await db.query(
+      KitchenHistoryFields.tableName,
+      orderBy: '${KitchenHistoryFields.timestamp} DESC',
+    );
+    return result.map((json) => KitchenHistory.fromJson(json)).toList();
   }
 }
