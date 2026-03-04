@@ -97,12 +97,11 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(widget.planName),
             Text(
               DateFormat('dd.MM.yyyy HH:mm').format(widget.training.date),
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: 14),
             ),
           ],
         ),
@@ -111,12 +110,9 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
           ? const Center(child: CircularProgressIndicator())
           : ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: _exerciseSets.length + 1, // +1 for Header (Rating/Note)
+              itemCount: _exerciseSets.length,
               itemBuilder: (context, index) {
-                if (index == 0) {
-                  return _buildHeader();
-                }
-                final group = _exerciseSets[index - 1];
+                final group = _exerciseSets[index];
                 return Card(
                   margin: const EdgeInsets.only(bottom: 16),
                   child: Padding(
@@ -129,115 +125,50 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                         ),
                         const SizedBox(height: 8),
-                        _buildSetsTable(group.sets.where((s) => s.isWarmup).toList(), 'Aufwärmsätze', Colors.orange),
-                        if (group.sets.any((s) => s.isWarmup) && group.sets.any((s) => !s.isWarmup))
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8.0),
-                            child: Divider(),
-                          ),
-                        _buildSetsTable(group.sets.where((s) => !s.isWarmup).toList(), 'Arbeitssätze', Theme.of(context).primaryColor),
+                        Table(
+                          columnWidths: const {
+                            0: FixedColumnWidth(40),
+                            1: FlexColumnWidth(),
+                            2: FlexColumnWidth(),
+                          },
+                          children: [
+                            const TableRow(
+                              children: [
+                                Text('#', style: TextStyle(fontWeight: FontWeight.bold)),
+                                Text('Kg', style: TextStyle(fontWeight: FontWeight.bold)),
+                                Text('Wdh.', style: TextStyle(fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                            const TableRow(children: [SizedBox(height: 8), SizedBox(height: 8), SizedBox(height: 8)]), // Spacer
+                            ...group.sets.map((s) => TableRow(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  child: Row(
+                                    children: [
+                                      Text('${s.setNumber}'),
+                                      if (s.isWarmup) const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.hot_tub, size: 12, color: Colors.orange)),
+                                    ],
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  child: Text('${s.weight ?? '-'}'),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  child: Text('${s.reps ?? '-'}'),
+                                ),
+                              ],
+                            )),
+                          ],
+                        ),
                       ],
                     ),
                   ),
                 );
               },
             ),
-    );
-  }
-
-  Widget _buildHeader() {
-    if (widget.training.rating == null && widget.training.note == null) {
-      return const SizedBox.shrink();
-    }
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      color: Theme.of(context).cardColor,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (widget.training.rating != null)
-              Row(
-                children: [
-                  const Text('Bewertung: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ...List.generate(
-                    5,
-                    (index) => Icon(
-                      index < widget.training.rating! ? Icons.star : Icons.star_border,
-                      color: Colors.amber,
-                      size: 20,
-                    ),
-                  ),
-                ],
-              ),
-            if (widget.training.rating != null && widget.training.note != null)
-              const SizedBox(height: 8),
-            if (widget.training.note != null)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Notiz:', style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text(widget.training.note!),
-                ],
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSetsTable(List<GymSet> sets, String title, Color color) {
-    if (sets.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-            color: color,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Table(
-          columnWidths: const {
-            0: FixedColumnWidth(40),
-            1: FlexColumnWidth(),
-            2: FlexColumnWidth(),
-          },
-          children: [
-            const TableRow(
-              children: [
-                Text('#', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text('Kg', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text('Wdh.', style: TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const TableRow(children: [SizedBox(height: 4), SizedBox(height: 4), SizedBox(height: 4)]), // Spacer
-            ...sets.map((s) => TableRow(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Text('${s.setNumber}'),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Text('${s.weight ?? '-'}'),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Text('${s.reps ?? '-'}'),
-                ),
-              ],
-            )),
-          ],
-        ),
-      ],
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:diary_app/screens/diary_screen.dart';
 import 'package:diary_app/screens/gym_screen.dart';
+import 'package:diary_app/screens/settings/settings_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -11,6 +12,16 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Menü'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: Center(
         child: Padding(
