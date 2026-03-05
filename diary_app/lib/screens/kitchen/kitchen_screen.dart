@@ -5,6 +5,7 @@ import 'package:diary_app/models/kitchen/kitchen_tag.dart';
 import 'package:diary_app/services/kitchen_service.dart';
 import 'package:diary_app/screens/kitchen/add_kitchen_item_screen.dart';
 import 'package:diary_app/screens/kitchen/kitchen_import_screen.dart';
+import 'package:diary_app/screens/kitchen/kitchen_statistics_screen.dart';
 import 'package:diary_app/widgets/app_drawer.dart';
 import 'package:diary_app/screens/settings/settings_screen.dart';
 
@@ -169,6 +170,35 @@ class _KitchenScreenState extends State<KitchenScreen> {
     );
   }
 
+  void _showTrashDialog(KitchenItem item) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Wegschmeißen?'),
+          content: Text('Möchtest du "${item.name}" wirklich komplett entsorgen?\nDies kann nicht rückgängig gemacht werden, wird aber für die Statistik erfasst.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Abbrechen'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+              onPressed: () async {
+                Navigator.of(context).pop();
+                if (item.id != null) {
+                  await _kitchenService.trashItem(item.id!);
+                  _loadItems();
+                }
+              },
+              child: const Text('Wegschmeißen'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   String _formatTotal(double total) {
     if (total == total.toInt()) return total.toInt().toString();
     return total.toStringAsFixed(2).replaceAll(RegExp(r'0*$'), '').replaceAll(RegExp(r'\.$'), '');
@@ -260,6 +290,17 @@ class _KitchenScreenState extends State<KitchenScreen> {
       endDrawer: AppDrawer(
         title: 'Küche Menü',
         children: [
+          ListTile(
+            leading: const Icon(Icons.bar_chart),
+            title: const Text('Statistiken'),
+            onTap: () {
+              Navigator.pop(context); // Close drawer
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const KitchenStatisticsScreen()),
+              );
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.file_upload),
             title: const Text('JSON Import'),
@@ -426,100 +467,140 @@ class _KitchenScreenState extends State<KitchenScreen> {
                                       displayTotal = '${_formatTotal(totalMenge)} $einheit';
                                     }
 
-                                    return Column(
-                                      children: [
-                                        ExpansionTile(
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+                                      child: Card(
+                                        elevation: 2,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        clipBehavior: Clip.antiAlias,
+                                        child: ExpansionTile(
                                           title: Row(
                                             children: [
                                               Container(
-                                                width: 4,
-                                                height: 24,
-                                                margin: const EdgeInsets.only(right: 8),
+                                                width: 6,
+                                                height: 40,
+                                                margin: const EdgeInsets.only(right: 12),
                                                 decoration: BoxDecoration(
                                                   color: _getMostCriticalColor(itemsForSecondaryGroup),
-                                                  borderRadius: BorderRadius.circular(2),
+                                                  borderRadius: BorderRadius.circular(3),
                                                 ),
                                               ),
                                               Expanded(
                                                 child: Text(
                                                   basisProdukt,
-                                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                                 ),
                                               ),
                                             ],
                                           ),
-                                          subtitle: Text('Gesamt: $displayTotal'),
+                                          subtitle: Padding(
+                                            padding: const EdgeInsets.only(left: 18.0),
+                                            child: Text('Gesamt: $displayTotal'),
+                                          ),
                                           children: itemsForSecondaryGroup.map<Widget>((item) {
                                             // Get tags for display
                                             final itemTags = item.id != null && _itemTags.containsKey(item.id!)
                                                 ? _itemTags[item.id!]!.map((t) => t.name).join(', ')
                                                 : '';
 
-                                            return ListTile(
-                                              onTap: () async {
-                                                final tags = item.id != null && _itemTags.containsKey(item.id!) ? _itemTags[item.id!]! : <KitchenTag>[];
-                                                final result = await Navigator.of(context).push(
-                                                  MaterialPageRoute(
-                                                    builder: (context) => AddKitchenItemScreen(
-                                                      existingItem: item,
-                                                      existingTags: tags,
-                                                    ),
-                                                  ),
-                                                );
-                                                if (result == true) {
-                                                  _loadItems();
-                                                }
-                                              },
-                                              contentPadding: const EdgeInsets.only(left: 72, right: 16),
-                                              title: Text(item.name),
-                                              subtitle: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  if (item.marke != null && item.marke!.isNotEmpty)
-                                                    Text('Marke: ${item.marke}'),
-                                                  if (itemTags.isNotEmpty)
-                                                    Text('Tags: $itemTags', style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 12)),
-                                                  if (item.haltbarBis != null)
-                                                    Row(
-                                                      children: [
-                                                        Icon(
-                                                          Icons.calendar_today,
-                                                          size: 14,
-                                                          color: _getExpirationColor(item.haltbarBis),
+                                            return Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                                              child: Card(
+                                                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                                                elevation: 0,
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                child: ListTile(
+                                                  onTap: () async {
+                                                    final tags = item.id != null && _itemTags.containsKey(item.id!) ? _itemTags[item.id!]! : <KitchenTag>[];
+                                                    final result = await Navigator.of(context).push(
+                                                      MaterialPageRoute(
+                                                        builder: (context) => AddKitchenItemScreen(
+                                                          existingItem: item,
+                                                          existingTags: tags,
                                                         ),
-                                                        const SizedBox(width: 4),
-                                                        Text(
-                                                          'MHD: ${DateFormat('dd.MM.yyyy').format(item.haltbarBis!)}',
-                                                          style: TextStyle(
-                                                            color: _getExpirationColor(item.haltbarBis),
-                                                            fontWeight: FontWeight.w500,
+                                                      ),
+                                                    );
+                                                    if (result == true) {
+                                                      _loadItems();
+                                                    }
+                                                  },
+                                                  title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                                  subtitle: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      const SizedBox(height: 4),
+                                                      if (item.marke != null && item.marke!.isNotEmpty)
+                                                        Text('Marke: ${item.marke}'),
+                                                      if (itemTags.isNotEmpty)
+                                                        Text('Tags: $itemTags', style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 12)),
+                                                      if (item.haltbarBis != null)
+                                                        Padding(
+                                                          padding: const EdgeInsets.only(top: 4.0),
+                                                          child: Row(
+                                                            children: [
+                                                              Icon(
+                                                                Icons.calendar_today,
+                                                                size: 14,
+                                                                color: _getExpirationColor(item.haltbarBis),
+                                                              ),
+                                                              const SizedBox(width: 4),
+                                                              Text(
+                                                                'MHD: ${DateFormat('dd.MM.yyyy').format(item.haltbarBis!)}',
+                                                                style: TextStyle(
+                                                                  color: _getExpirationColor(item.haltbarBis),
+                                                                  fontWeight: FontWeight.w500,
+                                                                ),
+                                                              ),
+                                                            ],
                                                           ),
                                                         ),
-                                                      ],
-                                                    ),
-                                                ],
-                                              ),
-                                              trailing: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Text(
-                                                    '${_formatTotal(item.menge)} ${item.einheit}',
-                                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                                    ],
                                                   ),
-                                                  const SizedBox(width: 8),
-                                                  IconButton(
-                                                    icon: const Icon(Icons.restaurant),
-                                                    onPressed: () => _showConsumeDialog(item),
-                                                    tooltip: 'Verbrauchen',
-                                                    color: Theme.of(context).colorScheme.primary,
+                                                  trailing: Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                                    children: [
+                                                      Text(
+                                                        '${_formatTotal(item.menge)} ${item.einheit}',
+                                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          InkWell(
+                                                            onTap: () => _showConsumeDialog(item),
+                                                            child: Padding(
+                                                              padding: const EdgeInsets.all(4.0),
+                                                              child: Icon(
+                                                                Icons.restaurant,
+                                                                size: 20,
+                                                                color: Theme.of(context).colorScheme.primary,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 8),
+                                                          InkWell(
+                                                            onTap: () => _showTrashDialog(item),
+                                                            child: const Padding(
+                                                              padding: EdgeInsets.all(4.0),
+                                                              child: Icon(
+                                                                Icons.delete_outline,
+                                                                size: 20,
+                                                                color: Colors.red,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
                                                   ),
-                                                ],
+                                                ),
                                               ),
                                             );
                                           }).toList(),
                                         ),
-                                        const Divider(height: 1),
-                                      ],
+                                      ),
                                     );
                                   }),
                                 ],

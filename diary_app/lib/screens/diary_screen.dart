@@ -311,16 +311,19 @@ class _DiaryScreenState extends State<DiaryScreen> {
                         itemCount: _filteredEntries.length,
                         itemBuilder: (context, index) {
                           final entry = _filteredEntries[index];
-                          return Card(
-                            margin: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
-                            child: InkWell(
-                              onTap: () => _navigateToEditEntry(entry),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                            child: Card(
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              clipBehavior: Clip.antiAlias,
+                              child: InkWell(
+                                onTap: () => _navigateToEditEntry(entry),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
                                     Text(
                                       DateFormat('dd.MM.yyyy')
                                           .format(entry.date),
@@ -347,12 +350,13 @@ class _DiaryScreenState extends State<DiaryScreen> {
                                     ],
                                     Text(
                                       entry.content,
-                                      style:
-                                          Theme.of(context).textTheme.bodyMedium,
-                                      maxLines: 5,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
+                                        style:
+                                            Theme.of(context).textTheme.bodyMedium,
+                                        maxLines: 5,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
