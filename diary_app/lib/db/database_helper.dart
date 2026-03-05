@@ -5,6 +5,8 @@ import 'package:diary_app/models/gym/gym_training.dart';
 import 'package:diary_app/models/kitchen/kitchen_history.dart';
 import 'package:diary_app/models/kitchen/kitchen_item.dart';
 import 'package:diary_app/models/kitchen/kitchen_tag.dart';
+import 'package:diary_app/models/kitchen/recipe.dart';
+import 'package:diary_app/models/kitchen/recipe_ingredient.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -41,7 +43,7 @@ class DatabaseHelper {
 
     final db = await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -69,6 +71,7 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
 
     await _createGymTables(db);
     await _createKitchenTables(db);
+    await _createRecipeTables(db);
   }
 
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -137,6 +140,41 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
       // Version 9: Add kitchen history
       await _createKitchenHistoryTable(db);
     }
+    if (oldVersion < 10) {
+      // Version 10: Add recipe tables
+      await _createRecipeTables(db);
+    }
+  }
+
+  Future _createRecipeTables(Database db) async {
+    const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    const textType = 'TEXT NOT NULL';
+    const textNullable = 'TEXT';
+    const realType = 'REAL NOT NULL';
+    const intType = 'INTEGER NOT NULL';
+    const intNullable = 'INTEGER';
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${RecipeFields.tableName} (
+  ${RecipeFields.id} $idType,
+  ${RecipeFields.name} $textType,
+  ${RecipeFields.description} $textNullable,
+  ${RecipeFields.prepTimeMinutes} $intNullable,
+  ${RecipeFields.createdAt} $textType
+)
+''');
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${RecipeIngredientFields.tableName} (
+  ${RecipeIngredientFields.id} $idType,
+  ${RecipeIngredientFields.recipeId} $intType,
+  ${RecipeIngredientFields.basisProdukt} $textType,
+  ${RecipeIngredientFields.menge} $realType,
+  ${RecipeIngredientFields.einheit} $textType,
+  ${RecipeIngredientFields.sortOrder} $intType,
+  FOREIGN KEY (${RecipeIngredientFields.recipeId}) REFERENCES ${RecipeFields.tableName} (${RecipeFields.id}) ON DELETE CASCADE
+)
+''');
   }
 
   Future _createKitchenHistoryTable(Database db) async {
@@ -372,6 +410,76 @@ CREATE TABLE IF NOT EXISTS ${GymSetFields.tableName} (
       where: '${DiaryEntryFields.id} = ?',
       whereArgs: [id],
     );
+  }
+
+  // --- Recipe CRUD Methods ---
+
+  Future<Recipe> createRecipe(Recipe recipe, List<RecipeIngredient> ingredients) async {
+    final db = await instance.database;
+    return await db.transaction((txn) async {
+      final recipeId = await txn.insert(RecipeFields.tableName, recipe.toJson());
+
+      for (var ingredient in ingredients) {
+        final ingredientWithId = ingredient.copyWith(recipeId: recipeId);
+        await txn.insert(RecipeIngredientFields.tableName, ingredientWithId.toJson());
+      }
+      return recipe.copyWith(id: recipeId);
+    });
+  }
+
+  Future<int> updateRecipe(Recipe recipe, List<RecipeIngredient> ingredients) async {
+    final db = await instance.database;
+    return await db.transaction((txn) async {
+      final rowsAffected = await txn.update(
+        RecipeFields.tableName,
+        recipe.toJson(),
+        where: '${RecipeFields.id} = ?',
+        whereArgs: [recipe.id],
+      );
+
+      // Replace ingredients
+      await txn.delete(
+        RecipeIngredientFields.tableName,
+        where: '${RecipeIngredientFields.recipeId} = ?',
+        whereArgs: [recipe.id],
+      );
+
+      for (var ingredient in ingredients) {
+        final ingredientWithId = ingredient.copyWith(recipeId: recipe.id);
+        await txn.insert(RecipeIngredientFields.tableName, ingredientWithId.toJson());
+      }
+
+      return rowsAffected;
+    });
+  }
+
+  Future<int> deleteRecipe(int id) async {
+    final db = await instance.database;
+    return await db.delete(
+      RecipeFields.tableName,
+      where: '${RecipeFields.id} = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<List<Recipe>> getAllRecipes() async {
+    final db = await instance.database;
+    final result = await db.query(
+      RecipeFields.tableName,
+      orderBy: '${RecipeFields.name} ASC',
+    );
+    return result.map((json) => Recipe.fromJson(json)).toList();
+  }
+
+  Future<List<RecipeIngredient>> getIngredientsForRecipe(int recipeId) async {
+    final db = await instance.database;
+    final result = await db.query(
+      RecipeIngredientFields.tableName,
+      where: '${RecipeIngredientFields.recipeId} = ?',
+      whereArgs: [recipeId],
+      orderBy: '${RecipeIngredientFields.sortOrder} ASC',
+    );
+    return result.map((json) => RecipeIngredient.fromJson(json)).toList();
   }
 
   // --- Gym CRUD Methods ---
