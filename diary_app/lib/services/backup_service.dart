@@ -60,36 +60,50 @@ class BackupService {
     await Share.shareXFiles([XFile(file.path)], text: 'Tagebuch App Backup');
   }
 
-  Future<void> restoreBackup() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['zip'],
-    );
+  Future<bool> restoreBackup() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.any, // Android can sometimes be picky with custom zip extensions
+      );
 
-    if (result == null || result.files.single.path == null) {
-      return; // User canceled
-    }
+      if (result == null || result.files.single.path == null) {
+        return false; // User canceled
+      }
 
-    final bytes = await File(result.files.single.path!).readAsBytes();
-    final archive = ZipDecoder().decodeBytes(bytes);
+      final file = File(result.files.single.path!);
+      final bytes = await file.readAsBytes();
 
-    for (final file in archive) {
-      if (file.isFile) {
-        final filename = file.name;
-        final data = file.content as List<int>;
-        final jsonString = utf8.decode(data);
-        final dynamic jsonData = jsonDecode(jsonString);
+      final archive = ZipDecoder().decodeBytes(bytes);
+      bool dataRestored = false;
 
-        if (filename == 'diary.json') {
-          await _importDiary(jsonData);
-        } else if (filename == 'gym.json') {
-          await _importGym(jsonData);
-        } else if (filename == 'kitchen.json') {
-          await _importKitchen(jsonData);
-        } else if (filename == 'recipes.json') {
-          await _importRecipes(jsonData);
+      for (final archiveFile in archive) {
+        if (archiveFile.isFile) {
+          final filename = archiveFile.name;
+          final data = archiveFile.content as List<int>;
+          final jsonString = utf8.decode(data);
+          final dynamic jsonData = jsonDecode(jsonString);
+
+          if (filename == 'diary.json') {
+            await _importDiary(jsonData);
+            dataRestored = true;
+          } else if (filename == 'gym.json') {
+            await _importGym(jsonData);
+            dataRestored = true;
+          } else if (filename == 'kitchen.json') {
+            await _importKitchen(jsonData);
+            dataRestored = true;
+          } else if (filename == 'recipes.json') {
+            await _importRecipes(jsonData);
+            dataRestored = true;
+          }
         }
       }
+      return dataRestored;
+    } catch (e) {
+      // Print error to console and return false to indicate failure to UI
+      // ignore: avoid_print
+      print('Error restoring backup: $e');
+      return false;
     }
   }
 

@@ -253,12 +253,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
               onPressed: () async {
                 Navigator.pop(context); // Close dialog
+
+                // Show a loading dialog since it can take a few seconds
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => const Center(child: CircularProgressIndicator()),
+                );
+
                 final backupService = BackupService();
-                await backupService.restoreBackup();
+                final success = await backupService.restoreBackup();
+
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Backup erfolgreich wiederhergestellt! Bitte App neu starten.')),
-                  );
+                  Navigator.pop(context); // Close loading dialog
+
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Backup erfolgreich wiederhergestellt! Bitte App neu starten.'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Fehler bei der Wiederherstellung oder Vorgang abgebrochen.'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 }
               },
               child: const Text('Wiederherstellen'),
