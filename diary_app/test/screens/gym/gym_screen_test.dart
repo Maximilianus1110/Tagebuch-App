@@ -1,13 +1,7 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:diary_app/screens/gym_screen.dart';
-import 'package:diary_app/services/theme_provider.dart';
-import 'package:provider/provider.dart';
 import 'package:diary_app/db/database_helper.dart';
 import 'package:diary_app/models/gym/gym_plan.dart';
 import 'package:diary_app/models/gym/gym_exercise.dart';
-import 'package:diary_app/models/gym/gym_training.dart';
-import 'package:sqflite/sqflite.dart';
 
 class MockGymDatabaseHelper extends DatabaseHelper {
   MockGymDatabaseHelper() : super.test();
@@ -40,15 +34,6 @@ void main() {
     // For a pure UI test without FFI, we need a mock that doesn't trigger the raw DB.
     DatabaseHelper.instance = MockGymDatabaseHelper();
   });
-
-  Widget createWidgetUnderTest() {
-    return ChangeNotifierProvider<ThemeProvider>(
-      create: (_) => ThemeProvider(),
-      child: const MaterialApp(
-        home: GymScreen(),
-      ),
-    );
-  }
 
   group('GymScreen Mock Tests', () {
     testWidgets('renders Gym Dashboard title', (WidgetTester tester) async {

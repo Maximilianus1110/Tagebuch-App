@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:diary_app/db/database_helper.dart';
 import 'package:diary_app/models/kitchen/kitchen_item.dart';
+import 'package:diary_app/models/kitchen/kitchen_product.dart';
 import 'package:diary_app/services/kitchen_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -160,6 +161,61 @@ void main() {
 
       final items = await kitchenService.getAllItems();
       expect(items.length, 3);
+    });
+
+    test('KitchenService automatically creates KitchenProduct on createItem', () async {
+      final now = DateTime.now();
+      final item = KitchenItem(
+        name: 'Test Spaghetti',
+        basisProdukt: 'Spaghetti',
+        marke: 'Barilla',
+        menge: 500,
+        einheit: 'g',
+        haltbarBis: now.add(const Duration(days: 30)),
+        hinzugefuegt: now,
+      );
+
+      await kitchenService.createItem(item, ['Nudeln']);
+
+      final db = await dbHelper.database;
+      final products = await db.query(KitchenProductFields.tableName, where: 'name = ?', whereArgs: ['Test Spaghetti']);
+
+      expect(products.length, 1);
+      final product = KitchenProduct.fromJson(products.first);
+      expect(product.name, 'Test Spaghetti');
+      expect(product.basisProdukt, 'Spaghetti');
+      expect(product.marke, 'Barilla');
+      expect(product.einheit, 'g');
+      expect(product.defaultHaltbarkeitTage, 30);
+    });
+
+    test('KitchenService updates KitchenProduct on updateItem', () async {
+      final now = DateTime.now();
+      final item = KitchenItem(
+        name: 'Test Milk',
+        basisProdukt: 'Milk',
+        menge: 1000,
+        einheit: 'ml',
+        haltbarBis: now.add(const Duration(days: 7)),
+        hinzugefuegt: now,
+      );
+
+      final created = await kitchenService.createItem(item, []);
+
+      // Update the item, changing expiry to 14 days
+      final updatedItem = created.copyWith(
+        haltbarBis: now.add(const Duration(days: 14)),
+        hinzugefuegt: now,
+      );
+
+      await kitchenService.updateItem(updatedItem, []);
+
+      final db = await dbHelper.database;
+      final products = await db.query(KitchenProductFields.tableName, where: 'name = ?', whereArgs: ['Test Milk']);
+
+      expect(products.length, 1);
+      final product = KitchenProduct.fromJson(products.first);
+      expect(product.defaultHaltbarkeitTage, 14);
     });
   });
 }

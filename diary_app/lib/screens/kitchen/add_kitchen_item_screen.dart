@@ -112,9 +112,22 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
       } catch (e) {
         // invalid date format
       }
+    } else if (int.tryParse(value) != null) {
+      // It's a number (days), handled by unfocus/editing complete
     } else {
        setState(() {
         _selectedDate = null;
+      });
+    }
+  }
+
+  void _onDateEditingComplete() {
+    final text = _dateController.text;
+    final days = int.tryParse(text);
+    if (days != null) {
+      setState(() {
+        _selectedDate = DateTime.now().add(Duration(days: days));
+        _dateController.text = DateFormat('dd.MM.yyyy').format(_selectedDate!);
       });
     }
   }
@@ -135,6 +148,12 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
 
       if (selection['tags'] != null && selection['tags'].toString().isNotEmpty) {
         _tagsController.text = selection['tags'] as String;
+      }
+
+      if (selection['defaultHaltbarkeitTage'] != null) {
+        final days = selection['defaultHaltbarkeitTage'] as int;
+        _selectedDate = DateTime.now().add(Duration(days: days));
+        _dateController.text = DateFormat('dd.MM.yyyy').format(_selectedDate!);
       }
     });
   }
@@ -407,28 +426,43 @@ class _AddKitchenItemScreenState extends State<AddKitchenItemScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _dateController,
-                keyboardType: TextInputType.datetime,
-                decoration: InputDecoration(
-                  labelText: 'Haltbar bis (TT.MM.JJJJ)',
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.calendar_today),
-                    onPressed: _presentDatePicker,
-                  ),
-                ),
-                onChanged: _onDateTextChanged,
-                validator: (value) {
-                   if (value != null && value.isNotEmpty) {
-                     try {
-                        DateFormat('dd.MM.yyyy').parseStrict(value);
-                     } catch(e) {
-                        return 'Ungültiges Datum. Format: TT.MM.JJJJ';
-                     }
-                   }
-                   return null;
+              Focus(
+                onFocusChange: (hasFocus) {
+                  if (!hasFocus) {
+                    _onDateEditingComplete();
+                  }
                 },
+                child: TextFormField(
+                  controller: _dateController,
+                  keyboardType: TextInputType.text,
+                  decoration: InputDecoration(
+                    labelText: 'Haltbar bis (TT.MM.JJJJ oder Anzahl Tage)',
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.calendar_today),
+                      onPressed: _presentDatePicker,
+                    ),
+                  ),
+                  onChanged: _onDateTextChanged,
+                  onEditingComplete: () {
+                    _onDateEditingComplete();
+                    FocusScope.of(context).unfocus();
+                  },
+                  validator: (value) {
+                     if (value != null && value.isNotEmpty) {
+                       // Try parsing as number first
+                       if (int.tryParse(value) != null) {
+                         return null; // Valid number
+                       }
+                       try {
+                          DateFormat('dd.MM.yyyy').parseStrict(value);
+                       } catch(e) {
+                          return 'Ungültiges Format. TT.MM.JJJJ oder Zahl (Tage)';
+                       }
+                     }
+                     return null;
+                  },
+                ),
               ),
               const SizedBox(height: 16),
               Autocomplete<String>(

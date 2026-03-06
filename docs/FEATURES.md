@@ -41,6 +41,10 @@ Die Küchenfunktion bietet eine umfangreiche Vorrats- und Bestandsverwaltung.
     *   Verwaltung von Lebensmitteln (Name, Basis-Produkt, Menge, Einheit, Marke, Mindesthaltbarkeitsdatum (MHD), Tags).
     *   *Mengenverwaltung:* Intern werden alle Mengen in Basis-Einheiten gespeichert (`g`, `ml`, `Stück`), um Berechnungen stabil zu halten.
     *   Die UI gruppiert Artikel primär nach ihrem `basis_produkt` und summiert die Gesamtmengen dieser Gruppe für die Anzeige.
+*   **Produkte & Autocomplete (`KitchenProduct`):**
+    *   Beim Hinzufügen von Vorrat oder Rezepten merkt sich die App automatisch neue Produkte (Name, Basis-Produkt, Marke, Haltbarkeit in Tagen) als Stammdaten.
+    *   Diese Stammdaten werden für Autocomplete-Vorschläge genutzt. Wählt man ein bekanntes Produkt, werden alle Felder inklusive berechnetem MHD (anhand der Standard-Haltbarkeit in Tagen) automatisch ausgefüllt.
+    *   Im Datumsfeld ("Haltbar bis") kann neben einem festen Datum (z.B. `14.04.2026`) auch eine Anzahl an Tagen (z.B. `33`) eingegeben werden, was sofort in ein entsprechendes Datum umgerechnet wird.
 *   **Status-Ampel (MHD):**
     *   Visuelle Indikatoren (Rot < 4 Tage, Gelb < 10 Tage, Grün >= 10 Tage) warnen vor ablaufenden Produkten.
 *   **JSON-Import:**

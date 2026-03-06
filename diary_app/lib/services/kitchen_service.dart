@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:diary_app/db/database_helper.dart';
 import 'package:diary_app/models/kitchen/kitchen_history.dart';
 import 'package:diary_app/models/kitchen/kitchen_item.dart';
+import 'package:diary_app/models/kitchen/kitchen_product.dart';
 import 'package:diary_app/models/kitchen/kitchen_tag.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -16,6 +17,27 @@ class KitchenService {
       // 1. Insert item
       final id = await txn.insert(KitchenItemFields.tableName, item.toJson());
       final newItem = item.copyWith(id: id);
+
+      // 1.5 Update or Insert Product
+      int? defaultHaltbarkeitTage;
+      if (item.haltbarBis != null) {
+        final diff = item.haltbarBis!.difference(item.hinzugefuegt).inDays;
+        if (diff > 0) defaultHaltbarkeitTage = diff;
+      }
+
+      final product = KitchenProduct(
+        name: item.name,
+        basisProdukt: item.basisProdukt,
+        marke: item.marke,
+        einheit: item.einheit,
+        defaultHaltbarkeitTage: defaultHaltbarkeitTage,
+      );
+
+      await txn.insert(
+        KitchenProductFields.tableName,
+        product.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
 
       // 2. Insert tags and relationships
       for (final tagName in tagNames) {
@@ -64,6 +86,27 @@ class KitchenService {
         item.toJson(),
         where: '${KitchenItemFields.id} = ?',
         whereArgs: [item.id],
+      );
+
+      // 1.5 Update or Insert Product
+      int? defaultHaltbarkeitTage;
+      if (item.haltbarBis != null) {
+        final diff = item.haltbarBis!.difference(item.hinzugefuegt).inDays;
+        if (diff > 0) defaultHaltbarkeitTage = diff;
+      }
+
+      final product = KitchenProduct(
+        name: item.name,
+        basisProdukt: item.basisProdukt,
+        marke: item.marke,
+        einheit: item.einheit,
+        defaultHaltbarkeitTage: defaultHaltbarkeitTage,
+      );
+
+      await txn.insert(
+        KitchenProductFields.tableName,
+        product.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
       );
 
       // 2. Delete old tags relationships
@@ -335,32 +378,39 @@ class KitchenService {
   // Get distinct item names and their details for autocomplete
   Future<List<Map<String, dynamic>>> getDistinctItemsForAutocomplete() async {
     final db = await _dbHelper.database;
-    final result = await db.rawQuery('''
-      SELECT MAX(${KitchenItemFields.id}) as id,
-             ${KitchenItemFields.name},
-             ${KitchenItemFields.basisProdukt},
-             ${KitchenItemFields.marke},
-             ${KitchenItemFields.einheit}
-      FROM ${KitchenItemFields.tableName}
-      GROUP BY ${KitchenItemFields.name}
-    ''');
+    final result = await db.query(KitchenProductFields.tableName);
 
-    List<Map<String, dynamic>> itemsWithTags = [];
+    List<Map<String, dynamic>> productsWithTags = [];
     for (var row in result) {
-      final itemId = row['id'] as int;
-      final tags = await getTagsForItem(itemId);
-      final tagNames = tags.map((t) => t.name).join(', ');
+      final name = row[KitchenProductFields.name] as String;
 
-      itemsWithTags.add({
-        'name': row[KitchenItemFields.name],
-        'basisProdukt': row[KitchenItemFields.basisProdukt],
-        'marke': row[KitchenItemFields.marke],
-        'einheit': row[KitchenItemFields.einheit],
+      // Try to find the latest item with this name to get its tags
+      final latestItemResult = await db.query(
+        KitchenItemFields.tableName,
+        where: '${KitchenItemFields.name} = ?',
+        whereArgs: [name],
+        orderBy: '${KitchenItemFields.id} DESC',
+        limit: 1,
+      );
+
+      String tagNames = '';
+      if (latestItemResult.isNotEmpty) {
+         final itemId = latestItemResult.first[KitchenItemFields.id] as int;
+         final tags = await getTagsForItem(itemId);
+         tagNames = tags.map((t) => t.name).join(', ');
+      }
+
+      productsWithTags.add({
+        'name': name,
+        'basisProdukt': row[KitchenProductFields.basisProdukt],
+        'marke': row[KitchenProductFields.marke],
+        'einheit': row[KitchenProductFields.einheit],
+        'defaultHaltbarkeitTage': row[KitchenProductFields.defaultHaltbarkeitTage],
         'tags': tagNames,
       });
     }
 
-    return itemsWithTags;
+    return productsWithTags;
   }
 
   // --- Statistics Methods ---
