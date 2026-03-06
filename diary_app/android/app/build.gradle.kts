@@ -31,13 +31,12 @@ android {
     }
 
     signingConfigs {
-        create("debugKeys") {
-            storeFile = file("debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
         }
-    }
 
     buildTypes {
         getByName("release") {
