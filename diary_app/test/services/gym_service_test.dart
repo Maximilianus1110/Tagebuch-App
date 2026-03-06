@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:diary_app/db/database_helper.dart';
-import 'package:diary_app/models/gym/gym_exercise.dart';
 import 'package:diary_app/models/gym/gym_plan.dart';
 import 'package:diary_app/models/gym/gym_training.dart';
 import 'package:diary_app/services/gym_service.dart';

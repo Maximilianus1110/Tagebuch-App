@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:diary_app/db/database_helper.dart';
 import 'package:diary_app/models/diary_entry.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'dart:io';
 
 void main() {
   setUpAll(() {
