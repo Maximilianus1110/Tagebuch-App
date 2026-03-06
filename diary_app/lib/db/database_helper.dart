@@ -694,6 +694,46 @@ CREATE TABLE IF NOT EXISTS ${GymSetFields.tableName} (
     return null;
   }
 
+    // --- Backup/Restore Helpers ---
+
+    Future<void> clearDiary() async {
+      final db = await instance.database;
+      await db.delete(DiaryEntryFields.tableName);
+    }
+
+    Future<void> clearGym() async {
+      final db = await instance.database;
+      await db.delete(GymSetFields.tableName);
+      await db.delete(GymTrainingFields.tableName);
+      await db.delete(GymPlanExerciseFields.tableName);
+      await db.delete(GymPlanFields.tableName);
+      await db.delete(GymExerciseFields.tableName);
+    }
+
+    Future<void> clearKitchen() async {
+      final db = await instance.database;
+      await db.delete(KitchenItemTagFields.tableName);
+      await db.delete(KitchenTagFields.tableName);
+      await db.delete(KitchenHistoryFields.tableName);
+      await db.delete(KitchenProductFields.tableName);
+      await db.delete(KitchenItemFields.tableName);
+    }
+
+    Future<void> clearRecipes() async {
+      final db = await instance.database;
+      await db.delete(RecipeIngredientFields.tableName);
+      await db.delete(RecipeFields.tableName);
+    }
+
+    Future<void> batchInsert(String tableName, List<dynamic> records) async {
+      final db = await instance.database;
+      final batch = db.batch();
+      for (var record in records) {
+        batch.insert(tableName, Map<String, dynamic>.from(record));
+      }
+      await batch.commit(noResult: true);
+    }
+
     // Cleanup old trash
     Future<int> cleanupTrash() async {
       final db = await instance.database;

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:diary_app/services/theme_provider.dart';
 import 'package:diary_app/services/export_service.dart';
 import 'package:diary_app/services/settings_service.dart';
+import 'package:diary_app/services/backup_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -120,11 +121,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.download),
-            title: const Text('Alle Daten exportieren'),
-            subtitle: const Text('Tagebuch & Gym Daten'),
+            title: const Text('Daten exportieren'),
+            subtitle: const Text('Textbasierter Export (Tagebuch & Gym)'),
             onTap: () async {
               await ExportService.exportAllData(context);
             },
+          ),
+          ListTile(
+            leading: const Icon(Icons.save),
+            title: const Text('Backup erstellen'),
+            subtitle: const Text('Vollständiges Backup (Tagebuch, Gym, Küche, etc.)'),
+            onTap: _showCreateBackupDialog,
+          ),
+          ListTile(
+            leading: const Icon(Icons.restore),
+            title: const Text('Backup wiederherstellen'),
+            subtitle: const Text('Daten aus einer ZIP-Datei laden'),
+            onTap: _showRestoreBackupDialog,
           ),
           const Divider(),
           const Padding(
@@ -149,5 +162,110 @@ class _SettingsScreenState extends State<SettingsScreen> {
       case ThemeMode.dark:
         return 'Dunkel';
     }
+  }
+
+  void _showCreateBackupDialog() {
+    bool includeDiary = true;
+    bool includeGym = true;
+    bool includeKitchen = true;
+    bool includeRecipes = true;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Backup erstellen'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Wähle die Kategorien aus, die gesichert werden sollen:'),
+                  CheckboxListTile(
+                    title: const Text('Tagebuch'),
+                    value: includeDiary,
+                    onChanged: (val) => setState(() => includeDiary = val ?? true),
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Gym (Pläne, Verlauf etc.)'),
+                    value: includeGym,
+                    onChanged: (val) => setState(() => includeGym = val ?? true),
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Küche (Produkte, Bestand, Historie)'),
+                    value: includeKitchen,
+                    onChanged: (val) => setState(() => includeKitchen = val ?? true),
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Rezepte'),
+                    value: includeRecipes,
+                    onChanged: (val) => setState(() => includeRecipes = val ?? true),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Abbrechen'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    Navigator.pop(context); // Close dialog
+                    final backupService = BackupService();
+                    await backupService.createBackup(
+                      includeDiary: includeDiary,
+                      includeGym: includeGym,
+                      includeKitchen: includeKitchen,
+                      includeRecipes: includeRecipes,
+                    );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Backup erfolgreich erstellt!')),
+                      );
+                    }
+                  },
+                  child: const Text('Erstellen'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showRestoreBackupDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Backup wiederherstellen'),
+          content: const Text(
+            'Achtung: Dies überschreibt deine aktuellen Daten für alle im Backup enthaltenen Kategorien.\n\n'
+            'Bist du sicher, dass du fortfahren möchtest?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Abbrechen'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+              onPressed: () async {
+                Navigator.pop(context); // Close dialog
+                final backupService = BackupService();
+                await backupService.restoreBackup();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Backup erfolgreich wiederhergestellt! Bitte App neu starten.')),
+                  );
+                }
+              },
+              child: const Text('Wiederherstellen'),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
