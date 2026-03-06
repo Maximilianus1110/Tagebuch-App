@@ -645,5 +645,6 @@ CREATE TABLE IF NOT EXISTS ${GymSetFields.tableName} (
     final db = await instance.database;
 
     db.close();
+    _database = null; // Clear cached instance so tests can recreate it
   }
 }

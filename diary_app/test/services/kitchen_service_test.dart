@@ -1,67 +1,165 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:diary_app/services/kitchen_service.dart';
 import 'package:diary_app/db/database_helper.dart';
 import 'package:diary_app/models/kitchen/kitchen_item.dart';
-import 'package:diary_app/models/kitchen/kitchen_history.dart';
+import 'package:diary_app/services/kitchen_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:sqflite/sqflite.dart';
 
 void main() {
-  late KitchenService kitchenService;
-
   setUpAll(() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   });
 
-  setUp(() async {
-    DatabaseHelper.instance = DatabaseHelper.test();
-    kitchenService = KitchenService();
-    // Clear db for clean slate
-    final db = await DatabaseHelper.instance.database;
-    await db.delete(KitchenItemFields.tableName);
-    await db.delete(KitchenHistoryFields.tableName);
-  });
+  group('KitchenService', () {
+    late DatabaseHelper dbHelper;
+    late KitchenService kitchenService;
 
-  test('importFromJson with multiplier should create multiple items', () async {
-    const jsonStr = '''[
-      {
-        "name": "Sahne",
-        "basis_produkt": "Sahne",
-        "menge": 200,
-        "einheit": "g",
-        "haltbar_tage": 10,
-        "packungen": 3
-      }
-    ]''';
+    setUp(() async {
+      final dbPath = await getDatabasesPath();
+      final path = '$dbPath/diary_kitchen_test.db';
+      await databaseFactory.deleteDatabase(path);
 
-    final count = await kitchenService.importFromJson(jsonStr);
-    expect(count, 3);
+      dbHelper = DatabaseHelper.test();
+      DatabaseHelper.instance = dbHelper;
 
-    final items = await kitchenService.getAllItems();
-    expect(items.length, 3);
-  });
+      // We must explicitly ensure db is opened before we start using it on a fresh DB.
+      await dbHelper.database;
 
-  test('trashItem should delete item and add to history', () async {
-    final newItem = KitchenItem(
-        name: 'TestItem',
-        basisProdukt: 'TestBasis',
-        menge: 100,
+      kitchenService = KitchenService();
+    });
+
+    tearDown(() async {
+      await dbHelper.close();
+    });
+
+    test('Should create an item with tags', () async {
+      final item = KitchenItem(
+        name: 'Milk',
+        basisProdukt: 'Milk',
+        menge: 1000,
+        einheit: 'ml',
+        hinzugefuegt: DateTime.now(),
+      );
+
+      final created = await kitchenService.createItem(item, ['Bio', 'Drink']);
+      expect(created.id, isNotNull);
+
+      final tags = await kitchenService.getTagsForItem(created.id!);
+      expect(tags.length, 2);
+      expect(tags.any((t) => t.name == 'Bio'), isTrue);
+    });
+
+    test('Should update an item and its tags', () async {
+      final item = KitchenItem(
+        name: 'Cheese',
+        basisProdukt: 'Cheese',
+        menge: 200,
         einheit: 'g',
         hinzugefuegt: DateTime.now(),
-    );
-    final created = await kitchenService.createItem(newItem, []);
+      );
+      final created = await kitchenService.createItem(item, ['Dairy']);
 
-    expect(created.id, isNotNull);
+      final updated = created.copyWith(menge: 150);
+      await kitchenService.updateItem(updated, ['Snack', 'Dairy']);
 
-    await kitchenService.trashItem(created.id!);
+      final items = await kitchenService.getAllItems();
+      final updatedItem = items.firstWhere((i) => i.id == created.id);
+      expect(updatedItem.menge, 150.0);
 
-    final items = await kitchenService.getAllItems();
-    expect(items.isEmpty, true);
+      final tags = await kitchenService.getTagsForItem(created.id!);
+      expect(tags.length, 2);
+      expect(tags.any((t) => t.name == 'Snack'), isTrue);
+    });
 
-    final history = await kitchenService.getHistoryEvents();
-    expect(history.length, 1);
-    expect(history.first.eventType, 'trashed');
-    expect(history.first.name, 'TestItem');
+    test('consumeItem should reduce quantity and create history event', () async {
+      final item = await kitchenService.createItem(
+        KitchenItem(
+          name: 'Rice',
+          basisProdukt: 'Rice',
+          menge: 1000,
+          einheit: 'g',
+          hinzugefuegt: DateTime.now(),
+        ),
+        []
+      );
+
+      // Consume 300g
+      await kitchenService.consumeItem(item.id!, 300);
+
+      final items = await kitchenService.getAllItems();
+      final updatedItem = items.firstWhere((i) => i.id == item.id);
+      expect(updatedItem.menge, 700.0);
+
+      final history = await kitchenService.getHistoryEvents();
+      final event = history.firstWhere((h) => h.itemId == item.id && h.eventType == 'consumed');
+      expect(event.menge, 300.0);
+    });
+
+    test('consumeItem fully should delete item and create history event', () async {
+      final item = await kitchenService.createItem(
+        KitchenItem(
+          name: 'Apple',
+          basisProdukt: 'Apple',
+          menge: 1,
+          einheit: 'Stück',
+          hinzugefuegt: DateTime.now(),
+        ),
+        []
+      );
+
+      await kitchenService.consumeItem(item.id!, 1);
+
+      final items = await kitchenService.getAllItems();
+      expect(items.any((i) => i.id == item.id), isFalse);
+
+      final history = await kitchenService.getHistoryEvents();
+      final event = history.firstWhere((h) => h.itemId == item.id && h.eventType == 'consumed');
+      expect(event.menge, 1.0);
+    });
+
+    test('trashItem should delete item and create trashed history event', () async {
+      final item = await kitchenService.createItem(
+        KitchenItem(
+          name: 'Yogurt',
+          basisProdukt: 'Yogurt',
+          menge: 500,
+          einheit: 'g',
+          hinzugefuegt: DateTime.now(),
+        ),
+        []
+      );
+
+      await kitchenService.trashItem(item.id!);
+
+      final items = await kitchenService.getAllItems();
+      expect(items.any((i) => i.id == item.id), isFalse);
+
+      final history = await kitchenService.getHistoryEvents();
+      final event = history.firstWhere((h) => h.itemId == item.id && h.eventType == 'trashed');
+      expect(event.menge, 500.0);
+    });
+
+    test('importFromJson with multiplier should create multiple items', () async {
+      // Clear DB manually inside the test to avoid residual items from other tests affecting the count
+      final db = await DatabaseHelper.instance.database;
+      await db.delete(KitchenItemFields.tableName);
+
+      const jsonStr = '''[
+        {
+          "name": "Sahne",
+          "basis_produkt": "Sahne",
+          "menge": 200,
+          "einheit": "g",
+          "haltbar_tage": 10,
+          "packungen": 3
+        }
+      ]''';
+
+      final count = await kitchenService.importFromJson(jsonStr);
+      expect(count, 3);
+
+      final items = await kitchenService.getAllItems();
+      expect(items.length, 3);
+    });
   });
 }
