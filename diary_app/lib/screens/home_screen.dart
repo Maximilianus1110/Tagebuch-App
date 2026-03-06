@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:diary_app/screens/diary_screen.dart';
 import 'package:diary_app/screens/gym_screen.dart';
+import 'package:diary_app/screens/kitchen/kitchen_screen.dart';
+import 'package:diary_app/screens/kitchen/recipes_screen.dart';
 import 'package:diary_app/screens/settings/settings_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -26,31 +28,55 @@ class HomeScreen extends StatelessWidget {
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildMenuCard(
-                context,
-                title: 'Gym',
-                icon: Icons.fitness_center,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const GymScreen()),
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
-              _buildMenuCard(
-                context,
-                title: 'Tagebuch',
-                icon: Icons.book,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const DiaryScreen()),
-                  );
-                },
-              ),
-            ],
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildMenuCard(
+                  context,
+                  title: 'Gym',
+                  icon: Icons.fitness_center,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => const GymScreen()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 24),
+                _buildMenuCard(
+                  context,
+                  title: 'Tagebuch',
+                  icon: Icons.book,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => const DiaryScreen()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 24),
+                _buildMenuCard(
+                  context,
+                  title: 'Küche',
+                  icon: Icons.kitchen,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => const KitchenScreen()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 24),
+                _buildMenuCard(
+                  context,
+                  title: 'Rezepte',
+                  icon: Icons.receipt_long,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => const RecipesScreen()),
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),

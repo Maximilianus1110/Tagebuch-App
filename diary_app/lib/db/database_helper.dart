@@ -2,6 +2,12 @@ import 'package:diary_app/models/diary_entry.dart';
 import 'package:diary_app/models/gym/gym_exercise.dart';
 import 'package:diary_app/models/gym/gym_plan.dart';
 import 'package:diary_app/models/gym/gym_training.dart';
+import 'package:diary_app/models/kitchen/kitchen_history.dart';
+import 'package:diary_app/models/kitchen/kitchen_item.dart';
+import 'package:diary_app/models/kitchen/kitchen_tag.dart';
+import 'package:diary_app/models/kitchen/kitchen_product.dart';
+import 'package:diary_app/models/kitchen/recipe.dart';
+import 'package:diary_app/models/kitchen/recipe_ingredient.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -38,7 +44,7 @@ class DatabaseHelper {
 
     final db = await openDatabase(
       path,
-      version: 7,
+      version: 11,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -65,6 +71,9 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
 ''');
 
     await _createGymTables(db);
+    await _createKitchenTables(db);
+    await _createRecipeTables(db);
+    await _createKitchenProductsTable(db);
   }
 
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -125,6 +134,179 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
         // Ignore
       }
     }
+    if (oldVersion < 8) {
+      // Version 8: Add kitchen tables
+      await _createKitchenTables(db);
+    }
+    if (oldVersion < 9) {
+      // Version 9: Add kitchen history
+      await _createKitchenHistoryTable(db);
+    }
+    if (oldVersion < 10) {
+      // Version 10: Add recipe tables
+      await _createRecipeTables(db);
+    }
+    if (oldVersion < 11) {
+      // Version 11: Add kitchen products table
+      await _createKitchenProductsTable(db);
+      await _migrateKitchenItemsToProducts(db);
+    }
+  }
+
+  Future _migrateKitchenItemsToProducts(Database db) async {
+    // Populate the new kitchen_products table with existing distinct items
+    final result = await db.rawQuery('''
+      SELECT
+        ${KitchenItemFields.name},
+        ${KitchenItemFields.basisProdukt},
+        ${KitchenItemFields.marke},
+        ${KitchenItemFields.einheit},
+        MAX(${KitchenItemFields.haltbarBis}) as maxHaltbarBis,
+        MAX(${KitchenItemFields.hinzugefuegt}) as maxHinzugefuegt
+      FROM ${KitchenItemFields.tableName}
+      GROUP BY ${KitchenItemFields.name}
+    ''');
+
+    for (var row in result) {
+      int? defaultHaltbarkeitTage;
+
+      final haltbarBisStr = row['maxHaltbarBis'] as String?;
+      final hinzugefuegtStr = row['maxHinzugefuegt'] as String?;
+
+      if (haltbarBisStr != null && hinzugefuegtStr != null) {
+        try {
+          final haltbarBis = DateTime.parse(haltbarBisStr);
+          final hinzugefuegt = DateTime.parse(hinzugefuegtStr);
+          final diff = haltbarBis.difference(hinzugefuegt).inDays;
+          if (diff > 0) defaultHaltbarkeitTage = diff;
+        } catch (e) {
+          // Ignore parsing errors for migration
+        }
+      }
+
+      await db.insert(
+        KitchenProductFields.tableName,
+        {
+          KitchenProductFields.name: row[KitchenItemFields.name],
+          KitchenProductFields.basisProdukt: row[KitchenItemFields.basisProdukt],
+          KitchenProductFields.marke: row[KitchenItemFields.marke],
+          KitchenProductFields.einheit: row[KitchenItemFields.einheit],
+          KitchenProductFields.defaultHaltbarkeitTage: defaultHaltbarkeitTage,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+  }
+
+  Future _createKitchenProductsTable(Database db) async {
+    const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    const textType = 'TEXT NOT NULL';
+    const textNullable = 'TEXT';
+    const intNullable = 'INTEGER';
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${KitchenProductFields.tableName} (
+  ${KitchenProductFields.id} $idType,
+  ${KitchenProductFields.name} $textType UNIQUE,
+  ${KitchenProductFields.basisProdukt} $textType,
+  ${KitchenProductFields.marke} $textNullable,
+  ${KitchenProductFields.einheit} $textType,
+  ${KitchenProductFields.defaultHaltbarkeitTage} $intNullable
+)
+''');
+  }
+
+  Future _createRecipeTables(Database db) async {
+    const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    const textType = 'TEXT NOT NULL';
+    const textNullable = 'TEXT';
+    const realType = 'REAL NOT NULL';
+    const intType = 'INTEGER NOT NULL';
+    const intNullable = 'INTEGER';
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${RecipeFields.tableName} (
+  ${RecipeFields.id} $idType,
+  ${RecipeFields.name} $textType,
+  ${RecipeFields.description} $textNullable,
+  ${RecipeFields.prepTimeMinutes} $intNullable,
+  ${RecipeFields.createdAt} $textType
+)
+''');
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${RecipeIngredientFields.tableName} (
+  ${RecipeIngredientFields.id} $idType,
+  ${RecipeIngredientFields.recipeId} $intType,
+  ${RecipeIngredientFields.basisProdukt} $textType,
+  ${RecipeIngredientFields.menge} $realType,
+  ${RecipeIngredientFields.einheit} $textType,
+  ${RecipeIngredientFields.sortOrder} $intType,
+  FOREIGN KEY (${RecipeIngredientFields.recipeId}) REFERENCES ${RecipeFields.tableName} (${RecipeFields.id}) ON DELETE CASCADE
+)
+''');
+  }
+
+  Future _createKitchenHistoryTable(Database db) async {
+    const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    const textType = 'TEXT NOT NULL';
+    const textNullable = 'TEXT';
+    const realType = 'REAL NOT NULL';
+    const intNullable = 'INTEGER';
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${KitchenHistoryFields.tableName} (
+  ${KitchenHistoryFields.id} $idType,
+  ${KitchenHistoryFields.itemId} $intNullable,
+  ${KitchenHistoryFields.name} $textType,
+  ${KitchenHistoryFields.basisProdukt} $textType,
+  ${KitchenHistoryFields.marke} $textNullable,
+  ${KitchenHistoryFields.menge} $realType,
+  ${KitchenHistoryFields.einheit} $textType,
+  ${KitchenHistoryFields.eventType} $textType,
+  ${KitchenHistoryFields.timestamp} $textType
+)
+''');
+  }
+
+  Future _createKitchenTables(Database db) async {
+    const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    const textType = 'TEXT NOT NULL';
+    const textNullable = 'TEXT';
+    const realType = 'REAL NOT NULL';
+    const intType = 'INTEGER NOT NULL';
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${KitchenItemFields.tableName} (
+  ${KitchenItemFields.id} $idType,
+  ${KitchenItemFields.name} $textType,
+  ${KitchenItemFields.basisProdukt} $textType,
+  ${KitchenItemFields.marke} $textNullable,
+  ${KitchenItemFields.menge} $realType,
+  ${KitchenItemFields.einheit} $textType,
+  ${KitchenItemFields.haltbarBis} $textNullable,
+  ${KitchenItemFields.hinzugefuegt} $textType
+)
+''');
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${KitchenTagFields.tableName} (
+  ${KitchenTagFields.id} $idType,
+  ${KitchenTagFields.name} TEXT NOT NULL UNIQUE
+)
+''');
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${KitchenItemTagFields.tableName} (
+  ${KitchenItemTagFields.itemId} $intType,
+  ${KitchenItemTagFields.tagId} $intType,
+  PRIMARY KEY (${KitchenItemTagFields.itemId}, ${KitchenItemTagFields.tagId}),
+  FOREIGN KEY (${KitchenItemTagFields.itemId}) REFERENCES ${KitchenItemFields.tableName} (${KitchenItemFields.id}) ON DELETE CASCADE,
+  FOREIGN KEY (${KitchenItemTagFields.tagId}) REFERENCES ${KitchenTagFields.tableName} (${KitchenTagFields.id}) ON DELETE CASCADE
+)
+''');
+
+    await _createKitchenHistoryTable(db);
   }
 
   Future _createGymTables(Database db) async {
@@ -300,6 +482,76 @@ CREATE TABLE IF NOT EXISTS ${GymSetFields.tableName} (
     );
   }
 
+  // --- Recipe CRUD Methods ---
+
+  Future<Recipe> createRecipe(Recipe recipe, List<RecipeIngredient> ingredients) async {
+    final db = await instance.database;
+    return await db.transaction((txn) async {
+      final recipeId = await txn.insert(RecipeFields.tableName, recipe.toJson());
+
+      for (var ingredient in ingredients) {
+        final ingredientWithId = ingredient.copyWith(recipeId: recipeId);
+        await txn.insert(RecipeIngredientFields.tableName, ingredientWithId.toJson());
+      }
+      return recipe.copyWith(id: recipeId);
+    });
+  }
+
+  Future<int> updateRecipe(Recipe recipe, List<RecipeIngredient> ingredients) async {
+    final db = await instance.database;
+    return await db.transaction((txn) async {
+      final rowsAffected = await txn.update(
+        RecipeFields.tableName,
+        recipe.toJson(),
+        where: '${RecipeFields.id} = ?',
+        whereArgs: [recipe.id],
+      );
+
+      // Replace ingredients
+      await txn.delete(
+        RecipeIngredientFields.tableName,
+        where: '${RecipeIngredientFields.recipeId} = ?',
+        whereArgs: [recipe.id],
+      );
+
+      for (var ingredient in ingredients) {
+        final ingredientWithId = ingredient.copyWith(recipeId: recipe.id);
+        await txn.insert(RecipeIngredientFields.tableName, ingredientWithId.toJson());
+      }
+
+      return rowsAffected;
+    });
+  }
+
+  Future<int> deleteRecipe(int id) async {
+    final db = await instance.database;
+    return await db.delete(
+      RecipeFields.tableName,
+      where: '${RecipeFields.id} = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<List<Recipe>> getAllRecipes() async {
+    final db = await instance.database;
+    final result = await db.query(
+      RecipeFields.tableName,
+      orderBy: '${RecipeFields.name} ASC',
+    );
+    return result.map((json) => Recipe.fromJson(json)).toList();
+  }
+
+  Future<List<RecipeIngredient>> getIngredientsForRecipe(int recipeId) async {
+    final db = await instance.database;
+    final result = await db.query(
+      RecipeIngredientFields.tableName,
+      where: '${RecipeIngredientFields.recipeId} = ?',
+      whereArgs: [recipeId],
+      orderBy: '${RecipeIngredientFields.sortOrder} ASC',
+    );
+    return result.map((json) => RecipeIngredient.fromJson(json)).toList();
+  }
+
   // --- Gym CRUD Methods ---
 
   // Exercises
@@ -463,5 +715,6 @@ CREATE TABLE IF NOT EXISTS ${GymSetFields.tableName} (
     final db = await instance.database;
 
     db.close();
+    _database = null; // Clear cached instance so tests can recreate it
   }
 }

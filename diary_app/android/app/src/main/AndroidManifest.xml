@@ -1,6 +1,9 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.diary_app"
+    xmlns:tools="http://schemas.android.com/tools">
     <application
-        android:label="Tagebuch App"
+        tools:ignore="MissingClass"
+        android:label="${appName}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

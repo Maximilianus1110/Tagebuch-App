@@ -301,8 +301,8 @@ class _GymScreenState extends State<GymScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal, // Greenish like sketch
-                    foregroundColor: Colors.white,
+                    backgroundColor: Theme.of(context).colorScheme.primary, // Using primary color for modern look
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -366,6 +366,7 @@ class _GymScreenState extends State<GymScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.hardEdge,
+      elevation: 2,
       child: InkWell(
         onTap: () {
           Navigator.of(context).push(
@@ -382,25 +383,29 @@ class _GymScreenState extends State<GymScreen> {
           child: Row(
             children: [
               // Date Section
-            Container(
-              padding: const EdgeInsets.only(right: 16),
-              decoration: BoxDecoration(
-                border: Border(right: BorderSide(color: Colors.grey.shade300)),
+              Container(
+                padding: const EdgeInsets.only(right: 16),
+                decoration: BoxDecoration(
+                  border: Border(right: BorderSide(color: Colors.grey.withValues(alpha: 0.3))),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      dayNumber,
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    Text(
+                      monthYear,
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
               ),
-              child: Column(
-                children: [
-                  Text(
-                    dayNumber,
-                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    monthYear,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
+              const SizedBox(width: 16),
             // Plan Name Section
             Expanded(
               child: Column(
