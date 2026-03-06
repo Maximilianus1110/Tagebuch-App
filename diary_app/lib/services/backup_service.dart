@@ -60,17 +60,26 @@ class BackupService {
     await Share.shareXFiles([XFile(file.path)], text: 'Tagebuch App Backup');
   }
 
-  Future<bool> restoreBackup() async {
+  Future<String?> pickBackupFile() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.any, // Android can sometimes be picky with custom zip extensions
+        withData: false, // Do not load into memory, use path instead
       );
 
-      if (result == null || result.files.single.path == null) {
-        return false; // User canceled
+      if (result != null && result.files.single.path != null) {
+        return result.files.single.path;
       }
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error picking backup file: $e');
+    }
+    return null;
+  }
 
-      final file = File(result.files.single.path!);
+  Future<bool> restoreBackup(String filePath) async {
+    try {
+      final file = File(filePath);
       final bytes = await file.readAsBytes();
 
       final archive = ZipDecoder().decodeBytes(bytes);
@@ -163,55 +172,79 @@ class BackupService {
   // --- Import Helpers ---
 
   Future<void> _importDiary(dynamic data) async {
-    final entries = data['entries'] as List<dynamic>?;
-    if (entries != null) {
-      await _db.clearDiary();
-      await _db.batchInsert(DiaryEntryFields.tableName, entries);
+    try {
+      final entries = data['entries'] as List<dynamic>?;
+      if (entries != null) {
+        await _db.clearDiary();
+        await _db.batchInsert(DiaryEntryFields.tableName, entries);
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error importing diary: $e');
+      rethrow; // Propagate error so restoreBackup can catch it
     }
   }
 
   Future<void> _importGym(dynamic data) async {
-    final exercises = data['exercises'] as List<dynamic>?;
-    final plans = data['plans'] as List<dynamic>?;
-    final planExercises = data['planExercises'] as List<dynamic>?;
-    final trainings = data['trainings'] as List<dynamic>?;
-    final sets = data['sets'] as List<dynamic>?;
+    try {
+      final exercises = data['exercises'] as List<dynamic>?;
+      final plans = data['plans'] as List<dynamic>?;
+      final planExercises = data['planExercises'] as List<dynamic>?;
+      final trainings = data['trainings'] as List<dynamic>?;
+      final sets = data['sets'] as List<dynamic>?;
 
-    if (exercises != null || plans != null || planExercises != null || trainings != null || sets != null) {
-        await _db.clearGym();
-        if (exercises != null) await _db.batchInsert(GymExerciseFields.tableName, exercises);
-        if (plans != null) await _db.batchInsert(GymPlanFields.tableName, plans);
-        if (planExercises != null) await _db.batchInsert(GymPlanExerciseFields.tableName, planExercises);
-        if (trainings != null) await _db.batchInsert(GymTrainingFields.tableName, trainings);
-        if (sets != null) await _db.batchInsert(GymSetFields.tableName, sets);
+      if (exercises != null || plans != null || planExercises != null || trainings != null || sets != null) {
+          await _db.clearGym();
+          if (exercises != null) await _db.batchInsert(GymExerciseFields.tableName, exercises);
+          if (plans != null) await _db.batchInsert(GymPlanFields.tableName, plans);
+          if (planExercises != null) await _db.batchInsert(GymPlanExerciseFields.tableName, planExercises);
+          if (trainings != null) await _db.batchInsert(GymTrainingFields.tableName, trainings);
+          if (sets != null) await _db.batchInsert(GymSetFields.tableName, sets);
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error importing gym: $e');
+      rethrow;
     }
   }
 
   Future<void> _importKitchen(dynamic data) async {
-    final items = data['items'] as List<dynamic>?;
-    final tags = data['tags'] as List<dynamic>?;
-    final itemTags = data['itemTags'] as List<dynamic>?;
-    final history = data['history'] as List<dynamic>?;
-    final products = data['products'] as List<dynamic>?;
+    try {
+      final items = data['items'] as List<dynamic>?;
+      final tags = data['tags'] as List<dynamic>?;
+      final itemTags = data['itemTags'] as List<dynamic>?;
+      final history = data['history'] as List<dynamic>?;
+      final products = data['products'] as List<dynamic>?;
 
-    if (items != null || tags != null || itemTags != null || history != null || products != null) {
-        await _db.clearKitchen();
-        if (items != null) await _db.batchInsert(KitchenItemFields.tableName, items);
-        if (tags != null) await _db.batchInsert(KitchenTagFields.tableName, tags);
-        if (itemTags != null) await _db.batchInsert(KitchenItemTagFields.tableName, itemTags);
-        if (history != null) await _db.batchInsert(KitchenHistoryFields.tableName, history);
-        if (products != null) await _db.batchInsert(KitchenProductFields.tableName, products);
+      if (items != null || tags != null || itemTags != null || history != null || products != null) {
+          await _db.clearKitchen();
+          if (items != null) await _db.batchInsert(KitchenItemFields.tableName, items);
+          if (tags != null) await _db.batchInsert(KitchenTagFields.tableName, tags);
+          if (itemTags != null) await _db.batchInsert(KitchenItemTagFields.tableName, itemTags);
+          if (history != null) await _db.batchInsert(KitchenHistoryFields.tableName, history);
+          if (products != null) await _db.batchInsert(KitchenProductFields.tableName, products);
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error importing kitchen: $e');
+      rethrow;
     }
   }
 
   Future<void> _importRecipes(dynamic data) async {
-    final recipes = data['recipes'] as List<dynamic>?;
-    final ingredients = data['ingredients'] as List<dynamic>?;
+    try {
+      final recipes = data['recipes'] as List<dynamic>?;
+      final ingredients = data['ingredients'] as List<dynamic>?;
 
-    if (recipes != null || ingredients != null) {
-        await _db.clearRecipes();
-        if (recipes != null) await _db.batchInsert(RecipeFields.tableName, recipes);
-        if (ingredients != null) await _db.batchInsert(RecipeIngredientFields.tableName, ingredients);
+      if (recipes != null || ingredients != null) {
+          await _db.clearRecipes();
+          if (recipes != null) await _db.batchInsert(RecipeFields.tableName, recipes);
+          if (ingredients != null) await _db.batchInsert(RecipeIngredientFields.tableName, ingredients);
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error importing recipes: $e');
+      rethrow;
     }
   }
 }
