@@ -50,13 +50,13 @@ class BackupService {
     if (archive.isEmpty) return; // Nothing selected
 
     final zipData = ZipEncoder().encode(archive);
-    if (zipData == null) return;
 
     final tempDir = await getTemporaryDirectory();
     final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
     final file = File('${tempDir.path}/diary_backup_$timestamp.zip');
-    await file.writeAsBytes(zipData);
+    await file.writeAsBytes(zipData); // ZipEncoder.encode guarantees not null for valid input
 
+    // ignore: deprecated_member_use
     await Share.shareXFiles([XFile(file.path)], text: 'Tagebuch App Backup');
   }
 

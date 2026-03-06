@@ -1,11 +1,6 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:archive/archive_io.dart';
 import 'package:diary_app/db/database_helper.dart';
-import 'package:diary_app/services/backup_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:path/path.dart';
 import 'package:diary_app/models/diary_entry.dart';
 
 void main() {
@@ -16,12 +11,10 @@ void main() {
 
   group('BackupService Tests', () {
     late DatabaseHelper dbHelper;
-    late BackupService backupService;
 
     setUp(() async {
       dbHelper = DatabaseHelper.test();
       DatabaseHelper.instance = dbHelper;
-      backupService = BackupService();
 
       // Clean DB before test
       await dbHelper.clearDiary();

@@ -65,15 +65,15 @@ void main() async {
   archive.addFile(ArchiveFile('recipes.json', recipesData.length, utf8.encode(recipesData)));
 
   final zipData = ZipEncoder().encode(archive);
-  if (zipData != null) {
-    // Ensure docs dir exists
-    final docsDir = Directory('../docs');
-    if (!docsDir.existsSync()) {
-      docsDir.createSync(recursive: true);
-    }
 
-    final file = File('../docs/backup_example.zip');
-    await file.writeAsBytes(zipData);
-    print('Backup file created successfully at ${file.path}');
+  // Ensure docs dir exists
+  final docsDir = Directory('../docs');
+  if (!docsDir.existsSync()) {
+    docsDir.createSync(recursive: true);
   }
+
+  final file = File('../docs/backup_example.zip');
+  await file.writeAsBytes(zipData); // ZipEncoder.encode guarantees not null for valid input
+  // ignore: avoid_print
+  print('Backup file created successfully at ${file.path}');
 }
