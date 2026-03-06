@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:diary_app/screens/diary_screen.dart';
 import 'package:diary_app/screens/gym_screen.dart';
 import 'package:diary_app/screens/kitchen/kitchen_screen.dart';
+import 'package:diary_app/screens/kitchen/recipes_screen.dart';
 import 'package:diary_app/screens/settings/settings_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -60,6 +61,17 @@ class HomeScreen extends StatelessWidget {
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (context) => const KitchenScreen()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 24),
+                _buildMenuCard(
+                  context,
+                  title: 'Rezepte',
+                  icon: Icons.receipt_long,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => const RecipesScreen()),
                     );
                   },
                 ),
