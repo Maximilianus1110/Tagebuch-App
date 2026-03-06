@@ -30,15 +30,6 @@ android {
         versionName = flutter.versionName
     }
 
-    signingConfigs {
-        create("debugKeys") {
-            storeFile = file("debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
-        }
-    }
-
     buildTypes {
         getByName("release") {
             // TODO: Add your own signing config for the release build.
@@ -49,7 +40,6 @@ android {
         getByName("debug") {
             applicationIdSuffix = ".debug"
             manifestPlaceholders["appName"] = "[DEBUG] Tagebuch"
-            signingConfig = signingConfigs.getByName("debugKeys")
         }
     }
 }
