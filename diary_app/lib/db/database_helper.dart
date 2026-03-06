@@ -5,6 +5,7 @@ import 'package:diary_app/models/gym/gym_training.dart';
 import 'package:diary_app/models/kitchen/kitchen_history.dart';
 import 'package:diary_app/models/kitchen/kitchen_item.dart';
 import 'package:diary_app/models/kitchen/kitchen_tag.dart';
+import 'package:diary_app/models/kitchen/kitchen_product.dart';
 import 'package:diary_app/models/kitchen/recipe.dart';
 import 'package:diary_app/models/kitchen/recipe_ingredient.dart';
 import 'package:flutter/foundation.dart';
@@ -43,7 +44,7 @@ class DatabaseHelper {
 
     final db = await openDatabase(
       path,
-      version: 10,
+      version: 11,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -72,6 +73,7 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
     await _createGymTables(db);
     await _createKitchenTables(db);
     await _createRecipeTables(db);
+    await _createKitchenProductsTable(db);
   }
 
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -144,6 +146,74 @@ CREATE TABLE ${DiaryEntryFields.tableName} (
       // Version 10: Add recipe tables
       await _createRecipeTables(db);
     }
+    if (oldVersion < 11) {
+      // Version 11: Add kitchen products table
+      await _createKitchenProductsTable(db);
+      await _migrateKitchenItemsToProducts(db);
+    }
+  }
+
+  Future _migrateKitchenItemsToProducts(Database db) async {
+    // Populate the new kitchen_products table with existing distinct items
+    final result = await db.rawQuery('''
+      SELECT
+        ${KitchenItemFields.name},
+        ${KitchenItemFields.basisProdukt},
+        ${KitchenItemFields.marke},
+        ${KitchenItemFields.einheit},
+        MAX(${KitchenItemFields.haltbarBis}) as maxHaltbarBis,
+        MAX(${KitchenItemFields.hinzugefuegt}) as maxHinzugefuegt
+      FROM ${KitchenItemFields.tableName}
+      GROUP BY ${KitchenItemFields.name}
+    ''');
+
+    for (var row in result) {
+      int? defaultHaltbarkeitTage;
+
+      final haltbarBisStr = row['maxHaltbarBis'] as String?;
+      final hinzugefuegtStr = row['maxHinzugefuegt'] as String?;
+
+      if (haltbarBisStr != null && hinzugefuegtStr != null) {
+        try {
+          final haltbarBis = DateTime.parse(haltbarBisStr);
+          final hinzugefuegt = DateTime.parse(hinzugefuegtStr);
+          final diff = haltbarBis.difference(hinzugefuegt).inDays;
+          if (diff > 0) defaultHaltbarkeitTage = diff;
+        } catch (e) {
+          // Ignore parsing errors for migration
+        }
+      }
+
+      await db.insert(
+        KitchenProductFields.tableName,
+        {
+          KitchenProductFields.name: row[KitchenItemFields.name],
+          KitchenProductFields.basisProdukt: row[KitchenItemFields.basisProdukt],
+          KitchenProductFields.marke: row[KitchenItemFields.marke],
+          KitchenProductFields.einheit: row[KitchenItemFields.einheit],
+          KitchenProductFields.defaultHaltbarkeitTage: defaultHaltbarkeitTage,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+  }
+
+  Future _createKitchenProductsTable(Database db) async {
+    const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    const textType = 'TEXT NOT NULL';
+    const textNullable = 'TEXT';
+    const intNullable = 'INTEGER';
+
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS ${KitchenProductFields.tableName} (
+  ${KitchenProductFields.id} $idType,
+  ${KitchenProductFields.name} $textType UNIQUE,
+  ${KitchenProductFields.basisProdukt} $textType,
+  ${KitchenProductFields.marke} $textNullable,
+  ${KitchenProductFields.einheit} $textType,
+  ${KitchenProductFields.defaultHaltbarkeitTage} $intNullable
+)
+''');
   }
 
   Future _createRecipeTables(Database db) async {

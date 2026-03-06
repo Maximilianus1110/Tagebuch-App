@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:diary_app/models/kitchen/recipe.dart';
 import 'package:diary_app/models/kitchen/recipe_ingredient.dart';
 import 'package:diary_app/services/recipe_service.dart';
+import 'package:diary_app/services/kitchen_service.dart';
 
 class AddRecipeScreen extends StatefulWidget {
   final Recipe? existingRecipe;
@@ -15,6 +16,7 @@ class AddRecipeScreen extends StatefulWidget {
 
 class _AddRecipeScreenState extends State<AddRecipeScreen> {
   final RecipeService _recipeService = RecipeService();
+  final KitchenService _kitchenService = KitchenService();
   final _formKey = GlobalKey<FormState>();
 
   late TextEditingController _nameController;
@@ -22,6 +24,7 @@ class _AddRecipeScreenState extends State<AddRecipeScreen> {
   late TextEditingController _prepTimeController;
 
   List<RecipeIngredientForm> _ingredients = [];
+  List<String> _autocompleteOptions = [];
 
   final List<String> _allowedUnits = ['g', 'kg', 'ml', 'l', 'Stück'];
 
@@ -44,6 +47,29 @@ class _AddRecipeScreenState extends State<AddRecipeScreen> {
     } else {
       // Start with one empty ingredient
       _addIngredientField();
+    }
+
+    _loadAutocompleteOptions();
+  }
+
+  Future<void> _loadAutocompleteOptions() async {
+    final products = await _kitchenService.getDistinctItemsForAutocomplete();
+    final tags = await _kitchenService.getAllTags();
+
+    final Set<String> optionsSet = {};
+    for (var p in products) {
+      if (p['basisProdukt'] != null && p['basisProdukt'].toString().isNotEmpty) {
+        optionsSet.add(p['basisProdukt'].toString());
+      }
+    }
+    for (var t in tags) {
+      optionsSet.add(t.name);
+    }
+
+    if (mounted) {
+      setState(() {
+        _autocompleteOptions = optionsSet.toList()..sort();
+      });
     }
   }
 
@@ -203,17 +229,39 @@ class _AddRecipeScreenState extends State<AddRecipeScreen> {
                     children: [
                       Expanded(
                         flex: 3,
-                        child: TextFormField(
-                          controller: ingForm.basisProduktController,
-                          decoration: const InputDecoration(
-                            labelText: 'Zutat (Produkt/Tag)',
-                            border: OutlineInputBorder(),
-                          ),
-                          validator: (value) {
-                             if (ingForm.mengeController.text.isNotEmpty && (value == null || value.trim().isEmpty)) {
-                               return 'Erforderlich';
-                             }
-                             return null;
+                        child: Autocomplete<String>(
+                          optionsBuilder: (TextEditingValue textEditingValue) {
+                            if (textEditingValue.text.isEmpty) {
+                              return const Iterable<String>.empty();
+                            }
+                            return _autocompleteOptions.where((String option) {
+                              return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                            });
+                          },
+                          onSelected: (String selection) {
+                            ingForm.basisProduktController.text = selection;
+                          },
+                          fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                            controller.addListener(() {
+                              ingForm.basisProduktController.text = controller.text;
+                            });
+                            if (ingForm.basisProduktController.text.isNotEmpty && controller.text.isEmpty) {
+                              controller.text = ingForm.basisProduktController.text;
+                            }
+                            return TextFormField(
+                              controller: controller,
+                              focusNode: focusNode,
+                              decoration: const InputDecoration(
+                                labelText: 'Zutat (Produkt/Tag)',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (value) {
+                                if (ingForm.mengeController.text.isNotEmpty && (value == null || value.trim().isEmpty)) {
+                                  return 'Erforderlich';
+                                }
+                                return null;
+                              },
+                            );
                           },
                         ),
                       ),

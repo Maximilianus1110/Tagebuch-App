@@ -28,7 +28,8 @@ Datumsangaben werden stets als `TEXT` (`toIso8601String()`) gespeichert, um Komp
 *   **`gym_sets` (`GymSet`)**: Einzelne Sätze eines Trainings (`trainingId`, `exerciseId`, `setNumber`, `reps`, `weight`, `isDone`, `durationSeconds`, `isWarmup`).
 
 ### 3. Kitchen (Küche)
-*   **`kitchen_items` (`KitchenItem`)**: Vorratseinträge. Mengen werden als `REAL` gespeichert, immer in der zugehörigen Basiseinheit (z.B. `g`, `ml`, `Stück`). Einheiten wie `kg` oder `l` werden vor dem Speichern konvertiert.
+*   **`kitchen_products` (`KitchenProduct`)**: Stammdaten für Produkte. Speichert Name, Basis-Produkt, Marke, Standard-Einheit und Standard-Haltbarkeit in Tagen (`default_haltbarkeit_tage`). Dient als Katalog für Autocomplete-Funktionen beim Hinzufügen von Vorräten oder Rezepten.
+*   **`kitchen_items` (`KitchenItem`)**: Tatsächliche Vorratseinträge. Mengen werden als `REAL` gespeichert, immer in der zugehörigen Basiseinheit (z.B. `g`, `ml`, `Stück`). Einheiten wie `kg` oder `l` werden vor dem Speichern konvertiert.
 *   **`kitchen_tags` (`KitchenTag`)**: Kategorisierungen von Artikeln.
 *   **`kitchen_item_tags`**: Many-to-Many-Verknüpfungstabelle zwischen Artikeln und Tags.
 *   **`kitchen_history` (`KitchenHistory`)**: Log-Tabelle für alle Konsum- oder Wegwerf-Ereignisse zur statistischen Auswertung.
