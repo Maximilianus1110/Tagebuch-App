@@ -254,15 +254,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onPressed: () async {
                 Navigator.pop(context); // Close dialog
 
-                // Show a loading dialog since it can take a few seconds
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (context) => const Center(child: CircularProgressIndicator()),
-                );
-
                 final backupService = BackupService();
-                final success = await backupService.restoreBackup();
+                final String? filePath = await backupService.pickBackupFile();
+
+                if (filePath == null) {
+                  return; // User canceled
+                }
+
+                if (context.mounted) {
+                  // Show a loading dialog since it can take a few seconds
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => const PopScope(
+                      canPop: false,
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  );
+                }
+
+                final success = await backupService.restoreBackup(filePath);
 
                 if (context.mounted) {
                   Navigator.pop(context); // Close loading dialog
@@ -277,7 +288,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Fehler bei der Wiederherstellung oder Vorgang abgebrochen.'),
+                        content: Text('Fehler bei der Wiederherstellung oder ungültiges Backup.'),
                         backgroundColor: Colors.red,
                       ),
                     );
