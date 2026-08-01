@@ -102,7 +102,7 @@ void main() {
     await tester.pumpAndSettle(); // Should resolve quickly with mock
 
     // Navigate to Diary
-    expect(find.text('Menü'), findsOneWidget);
+    expect(find.text('Tagebuch App'), findsOneWidget);
     await tester.tap(find.text('Tagebuch'));
     await tester.pumpAndSettle();
 

@@ -22,7 +22,7 @@ Die App folgt weitgehend einer klassischen dreischichtigen Architektur (Schichte
     *   Zustandsverwaltung über `StatefulWidget` oder `Provider`.
     *   Enthält Logik für Navigation und UI-Updates.
 2.  **Service-Layer (Services):**
-    *   Enthält die Geschäftslogik der App (`GymService`, `KitchenService`, `RecipeService`, `BackupService`, `ExportService`).
+    *   Enthält die Geschäftslogik der App (`GymService`, `KitchenService`, `RecipeService`, `BackupService`, `ExportService`, `SeedService`).
     *   Kapselt den Zugriff auf die Datenbank und bereitet Daten für die UI auf.
     *   Sorgt für die Trennung von UI und Datenbank.
 3.  **Data-Layer (Database & Models):**
@@ -54,6 +54,7 @@ diary_app/lib/
 │   ├── gym_service.dart
 │   ├── kitchen_service.dart
 │   ├── recipe_service.dart
+│   ├── seed_service.dart   # Beispieldaten-Seeding
 │   └── settings_service.dart
 ├── widgets/                # Wiederverwendbare UI-Komponenten
 │   └── app_drawer.dart

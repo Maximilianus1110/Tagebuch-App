@@ -103,6 +103,7 @@ In den globalen Einstellungen (`SettingsScreen`) können folgende Optionen vorge
 
 *   **Darstellung:** Umschalten des Farbschemas (Hell, Dunkel oder automatische Systemanpassung).
 *   **Pausen-Timer (Gym):** Die Dauer des Rest-Timers zwischen den Sätzen kann in 10-Sekunden-Schritten konfiguriert werden.
+*   **Beispieldaten laden (`SeedService`):** Lädt auf Wunsch beispielhafte Einträge für Tagebuch, Gym-Trainingspläne, Küchenvorräte und Rezepte. Bei einem Erststart der App (leere Datenbank) werden diese Beispieldaten automatisch zur Demonstration geladen.
 *   **Daten exportieren:** Erstellt eine strukturierte Textdatei (`tagebuch_export.txt` / `gym_export.txt`) zum schnellen Lesen außerhalb der App.
 *   **Backup erstellen:** Ermöglicht die Selektion von Datenbereichen (Tagebuch, Gym, Küche, Rezepte), packt diese in eine `.zip`-Datei mit JSON-Inhalten und öffnet den Teilen-Dialog.
 *   **Backup wiederherstellen:** Ermöglicht den Import einer über die App erstellten Backup-ZIP-Datei. *Achtung: Dies überschreibt die aktuellen Daten der entsprechenden Kategorien.*

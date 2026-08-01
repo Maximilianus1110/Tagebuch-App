@@ -7,7 +7,6 @@ import 'package:diary_app/screens/kitchen/add_kitchen_item_screen.dart';
 import 'package:diary_app/screens/kitchen/kitchen_import_screen.dart';
 import 'package:diary_app/screens/kitchen/kitchen_statistics_screen.dart';
 import 'package:diary_app/widgets/app_drawer.dart';
-import 'package:diary_app/screens/settings/settings_screen.dart';
 
 enum KitchenSortOption { basisProdukt, mhd, tags }
 
@@ -313,18 +312,6 @@ class _KitchenScreenState extends State<KitchenScreen> {
               if (result == true) {
                 _loadItems();
               }
-            },
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.settings),
-            title: const Text('Einstellungen'),
-            onTap: () {
-              Navigator.pop(context); // Close drawer
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              );
             },
           ),
         ],

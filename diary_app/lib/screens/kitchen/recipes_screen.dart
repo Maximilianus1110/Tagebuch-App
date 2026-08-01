@@ -3,6 +3,8 @@ import 'package:diary_app/services/recipe_service.dart';
 import 'package:diary_app/screens/kitchen/add_recipe_screen.dart';
 import 'package:diary_app/screens/kitchen/recipe_detail_screen.dart';
 
+import 'package:diary_app/widgets/app_drawer.dart';
+
 class RecipesScreen extends StatefulWidget {
   const RecipesScreen({super.key});
 
@@ -62,6 +64,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
     final filtered = _filteredRecipes;
 
     return Scaffold(
+      drawer: const AppDrawer(title: 'Rezepte'),
       appBar: AppBar(
         title: const Text('Rezepte'),
         actions: [

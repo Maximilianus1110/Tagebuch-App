@@ -1,5 +1,4 @@
 import 'package:diary_app/models/gym/gym_plan.dart';
-import 'package:diary_app/screens/diary_screen.dart';
 import 'package:diary_app/screens/gym/create_plan_screen.dart';
 import 'package:diary_app/screens/gym/manage_exercises_screen.dart';
 import 'package:diary_app/screens/gym/training_session_screen.dart';
@@ -10,7 +9,6 @@ import 'package:diary_app/services/export_service.dart';
 import 'package:diary_app/widgets/app_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:diary_app/screens/settings/settings_screen.dart';
 
 class GymScreen extends StatefulWidget {
   const GymScreen({super.key});
@@ -184,27 +182,6 @@ class _GymScreenState extends State<GymScreen> {
               Navigator.pop(context);
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (context) => const StatisticsScreen()),
-              );
-            },
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.settings),
-            title: const Text('Einstellungen'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.book),
-            title: const Text('Zum Tagebuch'),
-            onTap: () {
-              Navigator.pop(context); // Close drawer
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const DiaryScreen()),
               );
             },
           ),

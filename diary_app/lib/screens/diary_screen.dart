@@ -5,8 +5,6 @@ import 'package:diary_app/models/diary_entry.dart';
 import 'package:diary_app/screens/add_entry_screen.dart';
 import 'package:diary_app/services/export_service.dart';
 import 'package:diary_app/screens/trash_screen.dart';
-import 'package:diary_app/screens/gym_screen.dart';
-import 'package:diary_app/screens/settings/settings_screen.dart';
 import 'package:diary_app/widgets/app_drawer.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -180,27 +178,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
                     MaterialPageRoute(builder: (context) => const TrashScreen()),
                   )
                   .then((_) => _refreshEntries());
-            },
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.settings),
-            title: const Text('Einstellungen'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.fitness_center),
-            title: const Text('Modus wechseln'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const GymScreen()),
-              );
             },
           ),
         ],

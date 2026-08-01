@@ -18,14 +18,16 @@ void main() {
     testWidgets('Renders all menu items', (WidgetTester tester) async {
       await tester.pumpWidget(createWidgetUnderTest());
 
-      expect(find.text('Menü'), findsOneWidget);
+      expect(find.text('Tagebuch App'), findsOneWidget);
       expect(find.text('Gym'), findsOneWidget);
       expect(find.text('Tagebuch'), findsOneWidget);
-      expect(find.text('Küche'), findsOneWidget);
+      expect(find.text('Küche & Vorrat'), findsOneWidget);
+      expect(find.text('Rezepte'), findsOneWidget);
       expect(find.byIcon(Icons.settings), findsOneWidget);
       expect(find.byIcon(Icons.fitness_center), findsOneWidget);
       expect(find.byIcon(Icons.book), findsOneWidget);
       expect(find.byIcon(Icons.kitchen), findsOneWidget);
+      expect(find.byIcon(Icons.restaurant_menu), findsOneWidget);
     });
   });
 }
