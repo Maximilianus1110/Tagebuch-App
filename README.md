@@ -1,35 +1,43 @@
-# Tagebuch-App
-Projekt-Spezifikation: Minimalistisches Text-Tagebuch (Android)
-1. Übersicht & Ziel
-Entwicklung einer extrem simplen, rein textbasierten Tagebuch-App für Android. Die App soll so minimalistisch wie möglich sein (vergleichbar mit einer sehr einfachen Notizen-App). Sie dient ausschließlich dem Festhalten von Gedanken in Textform.
-2. Plattform & Technologie
- * Zielplattform: Android App
- * Technologie-Vorschlag: Flutter, React Native oder natives Kotlin (bitte das Framework nutzen, das am schnellsten zu einer stabilen Android-App führt).
-3. Kernfunktionen & UI-Screens
-Screen 1: Startseite (Übersicht)
- * Zeigt eine chronologische Liste aller bisherigen Tagebucheinträge (die neuesten Einträge ganz oben).
- * Jeder Listeneintrag zeigt das Datum (hervorgehoben) und den dazugehörigen Text.
- * Ein gut sichtbarer Button (z.B. ein Floating Action Button mit "+") zum Erstellen eines neuen Eintrags.
- * Ein "Export"-Button (z.B. ein Icon in der oberen App-Leiste).
-Screen 2: Neuer Eintrag / Eingabe-Screen
- * Datum: Ein Eingabefeld für das Datum. Standardmäßig ist das aktuelle Tagesdatum (heute) vorausgewählt. Das Datum muss durch den Nutzer manuell änderbar sein.
- * Textfeld: Ein großes, mehrzeiliges Textfeld für den eigentlichen Tagebucheintrag.
- * Speichern: Ein "Speichern"-Button. Nach erfolgreichem Speichern wird der Nutzer automatisch zur aktualisierten Startseite zurückgeleitet.
-4. Datenhaltung (Speicherung)
- * Ausschließlich Lokal: Alle Einträge werden lokal auf dem Smartphone des Nutzers gespeichert (z.B. via SQLite, Room Database oder SharedPreferences/lokaler JSON).
- * Es gibt keine Cloud-Anbindung, keine Server und keine Benutzerkonten.
-5. Export-Funktion
- * Bei Klick auf den Export-Button auf der Startseite fasst die App alle bisherigen Einträge in einer einzigen .txt-Datei zusammen.
- * Formatierung innerhalb der .txt-Datei:
-   Datum: [Datum des Eintrags]
-   [Text des Eintrags]
-   (Dieser Block wiederholt sich für jeden Eintrag)
- * Aktion nach Generierung: Die App öffnet nach dem Erstellen der Datei den nativen Android-Teilen-Dialog (Share Sheet). So kann der Nutzer die .txt-Datei direkt auf dem Handy speichern, per E-Mail senden oder in eine Cloud hochladen.
-6. Explizite Anti-Features (Was NICHT entwickelt werden soll)
-Um den minimalistischen Charakter strikt beizubehalten, sind folgende Features ausdrücklich verboten:
- * KEINE Bilder, Videos oder sonstige Datei-Anhänge.
- * KEINE Tags, Labels oder Ordnerstrukturen.
- * KEINE Textformatierungen (kein Fett, Kursiv, Unterstrichen etc., nur Plain Text).
- * KEINE Suchfunktion (außer sie ist mit 2 Zeilen Code gratis dabei).
- * KEINE Cloud-Synchronisation oder Logins.
- * 
+# Tagebuch App
+
+Willkommen im Repository der **Tagebuch App**. 
+
+Diese App ist eine moderne, datenschutzfreundliche Offline-First-Anwendung für Android und iOS. Sie speichert alle Daten ausschließlich lokal in einer SQLite-Datenbank auf dem Endgerät. Sie bietet eine multifunktionale Umgebung, die über das klassische Festhalten von Gedanken hinausgeht und drei eng miteinander verknüpfte Kernbereiche bereitstellt.
+
+## Die drei Kernbereiche
+
+1. **Tagebuch:** 
+   * Chronologisches Festhalten von Gedanken und Notizen.
+   * Intuitive Navigation über einen Kalender.
+   * Sicherer Soft-Delete (Papierkorb) mit automatischer Bereinigung nach 30 Tagen.
+
+2. **Gym (Fitness-Tracker):**
+   * Verwaltung von Trainingsplänen und Übungen.
+   * Aktives Trainingstracking mit Satz-Timer und Vibrationsfeedback bei Satzpausen.
+   * Progressive Overload-Unterstützung durch intelligentes Vorbefüllen von Gewichten/Wiederholungen aus der Historie.
+   * Visualisierung von Frequenz, Volumen und Maximalgewichten über grafische Statistiken.
+
+3. **Küche & Rezepte:**
+   * Detaillierte Vorratsverwaltung mit Mindesthaltbarkeitsdatum (MHD) und Status-Ampel.
+   * Autocomplete und Stammdatenpflege für schnelles Eintragen.
+   * Rezept-Management mit intelligentem Abgleich des vorhandenen Vorrats (Cookability-Sortierung).
+   * „Jetzt kochen“-Funktion mit automatischem Abzug der benötigten Mengen nach dem First-In, First-Out-Prinzip (bezüglich MHD).
+
+---
+
+## Dokumentation
+
+Die vollständige technische und funktionale Dokumentation befindet sich im Ordner [docs/](file:///c:/woorkspace/Tagebuch-App/docs/INDEX.md):
+
+* **[Features & Bedienung](file:///c:/woorkspace/Tagebuch-App/docs/FEATURES.md):** Detaillierte Beschreibung aller Funktionen.
+* **[Architektur & Struktur](file:///c:/woorkspace/Tagebuch-App/docs/ARCHITECTURE.md):** Informationen zum Tech-Stack, den Schichten und der Verzeichnisstruktur des Projekts.
+* **[Datenbank & Modelle](file:///c:/woorkspace/Tagebuch-App/docs/DATABASE.md):** Dokumentation der SQLite-Tabellen, Modelle und der Versionierung (aktuell Version 11).
+* **[Setup & Installation](file:///c:/woorkspace/Tagebuch-App/docs/SETUP.md):** Anleitung zur Einrichtung, Ausführung und dem Build der App.
+
+---
+
+## Projektstruktur
+Das eigentliche Flutter-Projekt befindet sich im Unterverzeichnis [diary_app/](file:///c:/woorkspace/Tagebuch-App/diary_app).
+
+*Sprache der Dokumentation: Deutsch*
+*Sprache im Code (Variablen, Klassen): Englisch*

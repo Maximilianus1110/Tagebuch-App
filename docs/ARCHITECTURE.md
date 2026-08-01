@@ -10,7 +10,7 @@ Die **Tagebuch App** ist als Flutter Applikation für mobile Endgeräte (Android
 *   **State Management / Dependency Injection:** Provider (`provider`)
 *   **Lokale Speicherung (Preferences):** Shared Preferences (`shared_preferences`)
 *   **Diagramme & Statistiken:** fl_chart
-*   **Datei-Import/Export:** `file_picker` und `share_plus`
+*   **Datei-Import/Export:** `file_picker`, `archive` (für ZIP-Backups) und `share_plus`
 *   **UI/Design System:** Material Design 3 (Material 3)
 
 ## Architektur-Muster
@@ -22,19 +22,19 @@ Die App folgt weitgehend einer klassischen dreischichtigen Architektur (Schichte
     *   Zustandsverwaltung über `StatefulWidget` oder `Provider`.
     *   Enthält Logik für Navigation und UI-Updates.
 2.  **Service-Layer (Services):**
-    *   Enthält die Geschäftslogik der App (`GymService`, `KitchenService`, `RecipeService`).
+    *   Enthält die Geschäftslogik der App (`GymService`, `KitchenService`, `RecipeService`, `BackupService`, `ExportService`).
     *   Kapselt den Zugriff auf die Datenbank und bereitet Daten für die UI auf.
     *   Sorgt für die Trennung von UI und Datenbank.
 3.  **Data-Layer (Database & Models):**
     *   `DatabaseHelper` agiert als Singleton und verwaltet die SQLite-Verbindung und das Schema.
     *   `Models` repräsentieren die Entitäten der Datenbank (z. B. `DiaryEntry`, `KitchenItem`, `Recipe`) in Dart und enthalten Logik für JSON-Serialisierung/Deserialisierung (`toJson`, `fromJson`).
 
-## Verzeichnisstruktur (`lib/`)
+## Verzeichnisstruktur (`diary_app/lib/`)
 
-Die Dateistruktur ist domänengetrieben aufgebaut, wobei jeder Hauptbereich (Gym, Kitchen, Diary) seine eigenen Modelle und Screens hat.
+Die Dateistruktur ist domänengetrieben aufgebaut, wobei jeder Hauptbereich (Gym, Kitchen, Diary) seine eigenen Modelle und Screens hat. Das eigentliche Flutter-Projekt befindet sich im Ordner `diary_app`.
 
 ```text
-lib/
+diary_app/lib/
 ├── db/                     # Datenbankverwaltung
 │   └── database_helper.dart
 ├── models/                 # Dart Modelle
@@ -49,14 +49,14 @@ lib/
 │   ├── kitchen/            # Küchen- und Rezept-spezifische Screens
 │   └── settings/           # Einstellungen
 ├── services/               # Geschäftslogik und Datenzugriff
-│   ├── export_service.dart
+│   ├── backup_service.dart # ZIP-Backup- & Wiederherstellungslogik
+│   ├── export_service.dart # Textbasierter Export
 │   ├── gym_service.dart
 │   ├── kitchen_service.dart
 │   ├── recipe_service.dart
 │   └── settings_service.dart
 ├── widgets/                # Wiederverwendbare UI-Komponenten
-│   ├── app_drawer.dart
-│   └── theming_widgets...
+│   └── app_drawer.dart
 └── main.dart               # App-Einstiegspunkt
 ```
 
