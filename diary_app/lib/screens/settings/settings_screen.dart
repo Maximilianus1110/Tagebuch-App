@@ -4,6 +4,7 @@ import 'package:diary_app/services/theme_provider.dart';
 import 'package:diary_app/services/export_service.dart';
 import 'package:diary_app/services/settings_service.dart';
 import 'package:diary_app/services/backup_service.dart';
+import 'package:diary_app/services/seed_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -138,6 +139,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('Backup wiederherstellen'),
             subtitle: const Text('Daten aus einer ZIP-Datei laden'),
             onTap: _showRestoreBackupDialog,
+          ),
+          ListTile(
+            leading: const Icon(Icons.auto_awesome),
+            title: const Text('Beispieldaten laden'),
+            subtitle: const Text('Erzeugt Beispieldaten für Tagebuch, Gym, Küche & Rezepte'),
+            onTap: _showSeedDataDialog,
           ),
           const Divider(),
           const Padding(
@@ -296,6 +303,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 }
               },
               child: const Text('Wiederherstellen'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showSeedDataDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Beispieldaten laden'),
+          content: const Text(
+            'Möchtest du umfangreiche Beispieldaten für Tagebuch, Gym, Küche und Rezepte in die App laden?\n\n'
+            'Hinweis: Bestehende Daten werden dabei durch die Beispieldaten ergänzt/ersetzt.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Abbrechen'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+
+                if (context.mounted) {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => const PopScope(
+                      canPop: false,
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  );
+                }
+
+                await SeedService.seedDatabase(overwrite: true);
+
+                if (context.mounted) {
+                  Navigator.pop(context); // Close loading indicator
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Beispieldaten erfolgreich geladen!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Laden'),
             ),
           ],
         );

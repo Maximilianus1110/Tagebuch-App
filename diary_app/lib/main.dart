@@ -3,7 +3,14 @@ import 'package:provider/provider.dart';
 import 'package:diary_app/screens/home_screen.dart';
 import 'package:diary_app/services/theme_provider.dart';
 
-void main() {
+import 'package:diary_app/services/seed_service.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  if (await SeedService.isDatabaseEmpty()) {
+    await SeedService.seedDatabase();
+  }
+
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),
