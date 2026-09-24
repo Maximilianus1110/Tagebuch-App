@@ -41,16 +41,14 @@ class HomeScreen extends StatelessWidget {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 2),
-              const Text(
-                'Wähle einen Bereich aus, um zu starten:',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
-              ),
-              const SizedBox(height: 12),
+
+              const SizedBox(height: 10),
+              
               Expanded(
                 child: GridView.count(
                   physics: const NeverScrollableScrollPhysics(),
                   crossAxisCount: isWide ? 2 : 1,
-                  childAspectRatio: isWide ? 2.6 : 3.6,
+                  childAspectRatio: isWide ? 2.0 : 2.5,
                   mainAxisSpacing: 10,
                   crossAxisSpacing: 10,
                   children: [
@@ -59,7 +57,7 @@ class HomeScreen extends StatelessWidget {
                       title: 'Gym',
                       subtitle: 'Fitness-Tracking, Pläne & Statistiken',
                       icon: Icons.fitness_center,
-                      gradientColors: [const Color(0xFF4A00E0), const Color(0xFF8E2DE2)],
+                      accentColor: const Color(0xFF6366F1),
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(builder: (context) => const GymScreen()),
@@ -71,7 +69,7 @@ class HomeScreen extends StatelessWidget {
                       title: 'Tagebuch',
                       subtitle: 'Chronologische Notizen & Kalender',
                       icon: Icons.book,
-                      gradientColors: [const Color(0xFF00B4D8), const Color(0xFF0077B6)],
+                      accentColor: const Color(0xFF00B4D8),
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(builder: (context) => const DiaryScreen()),
@@ -83,7 +81,7 @@ class HomeScreen extends StatelessWidget {
                       title: 'Küche & Vorrat',
                       subtitle: 'Bestandsverwaltung & MHD-Ampel',
                       icon: Icons.kitchen,
-                      gradientColors: [const Color(0xFF11998E), const Color(0xFF38EF7D)],
+                      accentColor: const Color(0xFF10B981),
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(builder: (context) => const KitchenScreen()),
@@ -95,7 +93,7 @@ class HomeScreen extends StatelessWidget {
                       title: 'Rezepte',
                       subtitle: 'Rezeptverwaltung & Bestandsabzug',
                       icon: Icons.restaurant_menu,
-                      gradientColors: [const Color(0xFFFF416C), const Color(0xFFFF4B2B)],
+                      accentColor: const Color(0xFFF59E0B),
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(builder: (context) => const RecipesScreen()),
@@ -117,36 +115,41 @@ class HomeScreen extends StatelessWidget {
     required String title,
     required String subtitle,
     required IconData icon,
-    required List<Color> gradientColors,
+    required Color accentColor,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Card(
-      elevation: 3,
+      elevation: 1,
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
       child: InkWell(
         onTap: onTap,
         child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: gradientColors,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          color: isDark
+              ? theme.colorScheme.surfaceContainerHigh
+              : theme.colorScheme.surface,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
+                  color: accentColor.withValues(alpha: isDark ? 0.2 : 0.12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(icon, size: 26, color: Colors.white),
+                child: Icon(icon, size: 28, color: accentColor),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -154,18 +157,18 @@ class HomeScreen extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
-                        fontSize: 17,
+                      style: TextStyle(
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       subtitle,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.white70,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -173,7 +176,11 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 14),
+              Icon(
+                Icons.arrow_forward_ios,
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                size: 14,
+              ),
             ],
           ),
         ),
@@ -181,3 +188,4 @@ class HomeScreen extends StatelessWidget {
     );
   }
 }
+
